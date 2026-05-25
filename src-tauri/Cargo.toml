@@ -1,0 +1,38 @@
+[package]
+name = "app"
+version.workspace = true
+description = "Kicks Guitar Workstation — open-source guitar amp sim and effects suite"
+authors = ["Kicks Contributors"]
+license.workspace = true
+repository = "https://github.com/kicks/guitar-workstation"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2" }
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tauri = { version = "2" }
+tauri-plugin-dialog = "2"
+tauri-plugin-log = "2"
+chrono = { version = "0.4", features = ["serde"] }
+hound.workspace = true
+walkdir.workspace = true
+midir.workspace = true
+reqwest.workspace = true
+
+guitarix-rpc = { path = "../crates/guitarix-rpc" }
+kicks-core = { path = "../crates/kicks-core" }
+kicks-dsp = { path = "../crates/kicks-dsp", features = ["cpal-backend"] }

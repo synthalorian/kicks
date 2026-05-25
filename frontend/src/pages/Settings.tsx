@@ -1,0 +1,279 @@
+import { useEffect, useCallback, useState } from 'react';
+import { useSettingsStore } from '../stores/settingsStore';
+import { useHotkeys } from '../hooks/useHotkeys';
+import * as api from '../lib/tauri';
+import type { AudioDeviceInfo } from '../types/tauri';
+
+export function Settings() {
+  const { settings, loading, dirty, fetchSettings, saveSettings, updateSetting } =
+    useSettingsStore();
+  const [devices, setDevices] = useState<AudioDeviceInfo[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  useEffect(() => {
+    setDevicesLoading(true);
+    api.listAudioDevices()
+      .then(setDevices)
+      .catch(() => {
+        // Running outside Tauri / no CPAL — leave empty
+      })
+      .finally(() => setDevicesLoading(false));
+  }, []);
+
+  if (!settings) {
+    return <div className="text-[var(--text-muted)] text-sm">Loading settings...</div>;
+  }
+
+  const handleSave = useCallback(() => {
+    if (settings) saveSettings(settings);
+  }, [settings, saveSettings]);
+
+  useHotkeys([
+    { key: 's', ctrl: true, handler: handleSave, ignoreInput: true },
+  ]);
+
+  return (
+    <div className="flex flex-col gap-6 max-w-xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-[var(--text-h)]">Settings</h2>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            Configure audio device, engine mode, AI assistant, and file directories.
+          </p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={!dirty || loading}
+          className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 cursor-pointer"
+        >
+          {loading ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+
+      {/* Engine Mode */}
+      <section className="border border-[var(--border)] rounded-xl p-4 bg-[var(--bg-surface)]">
+        <h3 className="text-sm font-medium text-[var(--text)] mb-3">Audio Engine</h3>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Engine Mode</span>
+            <select
+              value={settings.engine_mode}
+              onChange={(e) => updateSetting('engine_mode', e.target.value)}
+              className="w-40 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            >
+              <option value="Auto">Auto</option>
+              <option value="Internal">Internal</option>
+              <option value="Guitarix">Guitarix</option>
+            </select>
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">JACK Client Name</span>
+            <input
+              type="text"
+              value={settings.jack_client_name}
+              onChange={(e) => updateSetting('jack_client_name', e.target.value)}
+              className="w-40 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            />
+          </label>
+        </div>
+      </section>
+
+      {/* CPAL Audio Device */}
+      <section className="border border-[var(--border)] rounded-xl p-4 bg-[var(--bg-surface)]">
+        <h3 className="text-sm font-medium text-[var(--text)] mb-3">Audio Device</h3>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Sample Rate</span>
+            <select
+              value={settings.sample_rate}
+              onChange={(e) => updateSetting('sample_rate', parseInt(e.target.value) || 48000)}
+              className="w-40 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            >
+              <option value={44100}>44100 Hz</option>
+              <option value={48000}>48000 Hz</option>
+              <option value={96000}>96000 Hz</option>
+            </select>
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Buffer Size</span>
+            <select
+              value={settings.buffer_size}
+              onChange={(e) => updateSetting('buffer_size', parseInt(e.target.value) || 256)}
+              className="w-40 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            >
+              <option value={64}>64 samples</option>
+              <option value={128}>128 samples</option>
+              <option value={256}>256 samples</option>
+              <option value={512}>512 samples</option>
+              <option value={1024}>1024 samples</option>
+            </select>
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Device</span>
+            <div className="flex items-center gap-2">
+              <select
+                value={settings.audio_device}
+                onChange={(e) => updateSetting('audio_device', e.target.value)}
+                className="w-48 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+              >
+                <option value="">System Default</option>
+                {devices.map((d) => (
+                  <option key={d.name} value={d.name}>
+                    {d.name}
+                    {d.is_input && d.is_output ? '' : d.is_input ? ' (input only)' : ' (output only)'}
+                  </option>
+                ))}
+              </select>
+              {devicesLoading && (
+                <span className="text-[10px] text-[var(--text-muted)]">Scanning...</span>
+              )}
+            </div>
+          </label>
+        </div>
+      </section>
+
+      {/* Guitarix Connection */}
+      <section className="border border-[var(--border)] rounded-xl p-4 bg-[var(--bg-surface)]">
+        <h3 className="text-sm font-medium text-[var(--text)] mb-3">Guitarix Connection</h3>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Host</span>
+            <input
+              type="text"
+              value={settings.guitarix_host}
+              onChange={(e) => updateSetting('guitarix_host', e.target.value)}
+              className="w-40 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Port</span>
+            <input
+              type="number"
+              value={settings.guitarix_port}
+              onChange={(e) => updateSetting('guitarix_port', parseInt(e.target.value) || 4040)}
+              className="w-40 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            />
+          </label>
+        </div>
+      </section>
+
+      {/* AI Assistant */}
+      <section className="border border-[var(--border)] rounded-xl p-4 bg-[var(--bg-surface)]">
+        <h3 className="text-sm font-medium text-[var(--text)] mb-3">AI Tone Assistant</h3>
+        <div className="flex flex-col gap-3">
+          {/* Provider */}
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Provider</span>
+            <select
+              value={settings.ai_provider}
+              onChange={(e) => {
+                const provider = e.target.value;
+                updateSetting('ai_provider', provider);
+                // Set default endpoint URL when switching provider
+                if (provider === 'Anthropic') {
+                  updateSetting('ai_endpoint_url', 'https://api.anthropic.com/v1/messages');
+                } else if (provider === 'OpenAI') {
+                  updateSetting('ai_endpoint_url', 'https://api.openai.com/v1/chat/completions');
+                }
+              }}
+              className="w-64 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            >
+              <option value="Anthropic">Anthropic</option>
+              <option value="OpenAI">OpenAI / OpenRouter / Local</option>
+            </select>
+          </label>
+
+          {/* Endpoint URL */}
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Endpoint URL</span>
+            <input
+              type="text"
+              value={settings.ai_endpoint_url}
+              onChange={(e) => updateSetting('ai_endpoint_url', e.target.value)}
+              placeholder={settings.ai_provider === 'OpenAI' ? 'http://localhost:8080/v1/chat/completions' : 'https://api.anthropic.com/v1/messages'}
+              className="w-64 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)] font-mono text-[11px]"
+            />
+          </label>
+
+          {/* API Key */}
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">API Key</span>
+            <input
+              type="password"
+              value={settings.ai_api_key}
+              onChange={(e) => updateSetting('ai_api_key', e.target.value)}
+              placeholder={settings.ai_provider === 'OpenAI' ? 'sk-... (leave empty for local models)' : 'sk-ant-...'}
+              className="w-64 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            />
+          </label>
+
+          {/* Model */}
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Model</span>
+            <input
+              type="text"
+              value={settings.ai_model}
+              onChange={(e) => updateSetting('ai_model', e.target.value)}
+              placeholder={settings.ai_provider === 'OpenAI' ? 'gpt-4o, gemini-2.0-flash, glm-5.1, etc.' : 'claude-sonnet-4-20250514'}
+              className="w-64 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            />
+          </label>
+
+          {/* Provider info hint */}
+          <div className="mt-1 text-[11px] text-[var(--text-muted)] leading-relaxed">
+            {settings.ai_provider === 'OpenAI' ? (
+              <p>
+                Works with any OpenAI-compatible API: <strong>OpenAI</strong>, <strong>OpenRouter</strong>,
+                <strong> Ollama</strong>, <strong>llama-server</strong>, <strong>llama-swap</strong>,
+                <strong> GLM</strong>, <strong>Kimi</strong>, <strong>Together</strong>, <strong>Groq</strong>, and more.
+                Set the endpoint URL above to your provider's chat completions URL.
+              </p>
+            ) : (
+              <p>
+                Uses the Anthropic Messages API directly. Requires an <strong>Anthropic API key</strong>.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* File Directories */}
+      <section className="border border-[var(--border)] rounded-xl p-4 bg-[var(--bg-surface)]">
+        <h3 className="text-sm font-medium text-[var(--text)] mb-3">File Directories</h3>
+        <div className="flex flex-col gap-3">
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">IR Directory</span>
+            <input
+              type="text"
+              value={settings.ir_directories[0] ?? ''}
+              onChange={(e) => updateSetting('ir_directories', [e.target.value])}
+              className="flex-1 ml-4 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">NAM Directory</span>
+            <input
+              type="text"
+              value={settings.nam_directories[0] ?? ''}
+              onChange={(e) => updateSetting('nam_directories', [e.target.value])}
+              className="flex-1 ml-4 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            />
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Preset Directory</span>
+            <input
+              type="text"
+              value={settings.preset_directories[0] ?? ''}
+              onChange={(e) => updateSetting('preset_directories', [e.target.value])}
+              className="flex-1 ml-4 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            />
+          </label>
+        </div>
+      </section>
+    </div>
+  );
+}
