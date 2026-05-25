@@ -1,0 +1,126 @@
+# Kicks Guitar Workstation — Flatpak manifest
+#
+# Build:
+#   flatpak-builder --force-clean --install-deps-from=flathub \
+#     build/flatpak flatpak/com.kicks.guitar-workstation.yml
+#
+# Export:
+#   flatpak build-bundle \
+#     --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+#     build/flatpak-repo Kicks.flatpak com.kicks.guitar-workstation
+#
+# Requires runtimes:
+#   flatpak install flathub \
+#     org.freedesktop.Platform//24.08 \
+#     org.freedesktop.Sdk//24.08 \
+#     org.freedesktop.Sdk.Extension.rust-stable//24.08 \
+#     org.freedesktop.Sdk.Extension.node22//24.08
+---
+app-id: com.kicks.guitar-workstation
+runtime: org.freedesktop.Platform//24.08
+sdk: org.freedesktop.Sdk//24.08
+
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
+
+command: kicks
+
+finish-args:
+  # Audio
+  - --socket=pulseaudio
+  - --socket=session-bus
+  # Display
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --share=ipc
+  # Network (for AI tone assistant + guitarix RPC)
+  - --share=network
+  # Filesystem (user presets, IRs, config)
+  - --filesystem=home
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin:/usr/lib/sdk/rust-stable/lib
+  build-args:
+    - --share=network
+  env:
+    CARGO_HOME: /run/build/kicks/cargo
+    npm_config_cache: /run/build/kicks/npm-cache
+
+modules:
+  - shared-modules/linux-audio/pipewire.json
+  - shared-modules/linux-audio/alsa-card-profile-manager.json
+
+  - name: kicks
+    buildsystem: simple
+    build-commands:
+      # Frontend
+      - cd frontend && npm ci --prefer-offline && npm run build
+
+      # Backend (Rust) — target goes to workspace-level target/
+      - cd src-tauri && cargo build --release --features "cpal-backend,jack-backend"
+
+      # Install binary (cargo places it in workspace target/, not src-tauri/target/)
+      - install -Dm755 target/release/kicks -t /app/bin/
+
+      # Install icons (multiple sizes)
+      - install -Dm644 src-tauri/icons/32x32.png
+        /app/share/icons/hicolor/32x32/apps/com.kicks.guitar-workstation.png
+      - install -Dm644 src-tauri/icons/128x128.png
+        /app/share/icons/hicolor/128x128/apps/com.kicks.guitar-workstation.png
+      - install -Dm644 src-tauri/icons/128x128@2x.png
+        /app/share/icons/hicolor/256x256/apps/com.kicks.guitar-workstation.png
+      - install -Dm644 src-tauri/icons/icon.icns
+        /app/share/icons/hicolor/scalable/apps/com.kicks.guitar-workstation.icns
+      - install -Dm644 src-tauri/icons/icon.ico
+        /app/share/icons/hicolor/scalable/apps/com.kicks.guitar-workstation.ico
+
+      # Desktop file
+      - |
+        install -Dm644 /dev/stdin /app/share/applications/com.kicks.guitar-workstation.desktop <<'DESKTOP_EOF'
+        [Desktop Entry]
+        Type=Application
+        Name=Kicks
+        Comment=Guitar & Bass Workstation
+        Exec=kicks
+        Icon=com.kicks.guitar-workstation
+        Categories=Audio;AudioVideo;X-GNOME-Music;
+        Terminal=false
+        StartupNotify=true
+        DESKTOP_EOF
+
+      # Appstream metainfo
+      - |
+        install -Dm644 /dev/stdin /app/share/metainfo/com.kicks.guitar-workstation.metainfo.xml <<'METAINFO_EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <component type="desktop-application">
+          <id>com.kicks.guitar-workstation</id>
+          <name>Kicks</name>
+          <summary>Guitar &amp; Bass Workstation</summary>
+          <developer id="com.kicks">
+            <name>Kicks Contributors</name>
+          </developer>
+          <description>
+            <p>Open-source guitar and bass tone shaping with a native DSP engine.
+            Built with Rust + Tauri 2 + React.</p>
+          </description>
+          <categories>
+            <category>Audio</category>
+          </categories>
+          <url type="homepage">https://github.com/synth/kicks</url>
+          <project_license>GPL-3.0-or-later</project_license>
+        </component>
+        METAINFO_EOF
+
+    sources:
+      - type: dir
+        path: /home/synth/projects/kicks
+
+    cleanup:
+      - /include
+      - /lib/*.la
+      - /lib/pkgconfig
+      - /share/man
+      - /share/gtk-doc
+      - "*.a"

@@ -197,8 +197,8 @@ Opens on `http://localhost:5173` with simulated backend responses.
 - [x] Lock-free parameter changes for audio thread safety
 
 ### Phase 4 — Ship 🚧
-- [ ] Flatpak / Snap packaging
-- [ ] User documentation
+- [x] Flatpak / Snap packaging
+- [x] User documentation — [`docs/`](docs/index.md) covers all features
 - [ ] Build-time NAM inference support
 
 ## Session Handoff
@@ -246,11 +246,55 @@ Completed **lock-free parameters + audio flow visualization + settings page poli
 - `frontend/src/lib/tauri.ts` — Added `listAudioDevices()` API + simulated device list
 - `frontend/src/pages/Settings.tsx` — Device Name text input replaced with populated `<select>` dropdown from CPAL enumeration; fetches devices on mount
 
+### Session 4 (May 24, 2026)
+
+Completed **Flatpak + Snap packaging**:
+
+#### Flatpak
+- `flatpak/com.kicks.guitar-workstation.yml` — Full Flatpak manifest using Freedesktop 24.08 SDK + Platform
+  - SDK extensions: `rust-stable` for Rust build, `node22` for frontend build
+  - WebKitGTK 4.1 for Tauri 2 webview
+  - `finish-args`: PulseAudio, Wayland/X11, DRI, network, home filesystem
+  - Build steps: npm ci → npm run build → cargo build --release → install binary + icons + desktop file + AppStream metainfo
+  - Build: `flatpak-builder --force-clean build/flatpak flatpak/com.kicks.guitar-workstation.yml`
+  - Export: `flatpak build-bundle build/flatpak-repo Kicks.flatpak com.kicks.guitar-workstation`
+
+#### Snap
+- `snap/snapcraft.yaml` — Full Snapcraft manifest using core24 base
+  - Two-part build: `frontend` (nil plugin, npm ci/build) → `backend` (rust plugin, cargo build)
+  - Stage-packages: ALSA, JACK, PipeWire, WebKitGTK, GTK3, AppIndicator
+  - Plugs: desktop, wayland, x11, pulseaudio, opengl, home, network
+  - Confinement: strict
+  - Build: `snapcraft --output dist/kicks.snap`
+
+#### Build Scripts
+- `scripts/build-flatpak.sh` — Flatpak builder automation (runtime auto-install, debug/release, bundle export)
+- `scripts/build-snap.sh` — Snap builder (destructive/LXD modes)
+- `scripts/build-all.sh` — Full release pipeline: cargo check → test → npm build → cargo build --release → Tauri bundle → Flatpak → Snap
+
+### Session 5 (May 24, 2026) — User Documentation
+
+Completed **user documentation** covering all 7 pages:
+
+- `docs/index.md` — Overview, feature table, plugin chain reference, quick start
+- `docs/signal-chain.md` — PedalBoard drag-drop, AudioFlow VU meters, Amp vs BassAmp
+- `docs/presets.md` — Save/load, bank management, 361 built-in presets across 15 genres
+- `docs/ir-browser.md` — IR scanning, convolution loading, WAV format table
+- `docs/midi.md` — Device discovery, MIDI Learn, CC mapping, troubleshooting
+- `docs/live-mode.md` — Scene CRUD, performance flow, next/prev navigation
+- `docs/ai-assistant.md` — Provider setup (Anthropic + OpenAI-compatible), prompt examples
+- `docs/settings.md` — Audio config, buffer size latency table, hot-reload
+- `docs/keyboard-shortcuts.md` — All shortcuts (1-7 nav, Space, Ctrl+Z, Ctrl+S)
+- `docs/troubleshooting.md` — Audio/MIDI/IR/AI/Flatpak sandbox issues
+
 ### Files Most Likely Needed Next
 
-1. **Flatpak / Snap packaging**
-2. **User documentation**
-3. **Build-time NAM inference support**
+1. **Build-time NAM inference support** — `crates/kicks-dsp` needs a NAM (.nam file) inference engine. The NAM format from Neural Amp Modeler uses a lightweight feedforward neural net (LSTM or WaveNet-style). Options:
+   - Bundle the official `nam` Rust crate (if available) or reimplement the inference kernel
+   - Add `nam` feature to kicks-dsp, a `NamPlugin` that reads .nam files and processes audio
+   - Integrate into the existing signal chain as an additional plugin type (like Amp but ML-based)
+   - Follow the Cab/Convolver pattern: load NAM file → process samples in real time
+   - Check: `crates.io` for `nam` crate, or the NAM project's official inference code
 
 ### Current State
 
@@ -258,6 +302,8 @@ Completed **lock-free parameters + audio flow visualization + settings page poli
 - Build: `cargo build --release` produces the Tauri binary
 - Dev mode: `cargo run` (or `cd frontend && npm run dev` for browser-only with simulated backend)
 - All persistent state lives in `~/.config/kicks/`
+- Packaging: Flatpak (`flatpak/com.kicks.guitar-workstation.yml`), Snap (`snap/snapcraft.yaml`), Tauri bundles (AppImage, .deb)
+- Docs: 10 files in `docs/` covering all features
 
 ## License
 
