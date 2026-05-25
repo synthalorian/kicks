@@ -1,0 +1,161 @@
+# Kicks Guitar Workstation — Snap package manifest
+#
+# Build:
+#   snapcraft --output dist/kicks.snap
+#   (or snapcraft --destructive-mode for host-based build)
+#
+# Install:
+#   snap install --dangerous dist/kicks.snap
+#
+# For classic sandbox: snapcraft --use-lxd
+---
+name: kicks
+base: core24
+version: "0.1.0"
+summary: Guitar & Bass Workstation
+description: |
+  Open-source guitar and bass tone shaping with a native DSP engine.
+  Features a Boost → Amp/BassAmp → Cab (with convolution IR) → Delay → Reverb
+  plugin chain, CPAL full-duplex audio I/O, MIDI automation, AI tone assistant,
+  live mode scenes, and 400+ built-in presets.
+
+grade: stable
+confinement: strict
+
+apps:
+  kicks:
+    command: kicks
+    desktop: com.kicks.guitar-workstation.desktop
+    plugs:
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - pulseaudio
+      - opengl
+      - home
+      - network
+      - removable-media
+      - audio-record
+    environment:
+      # Ensure PipeWire/ALSA can find devices
+      ALSA_CONFIG_PATH: ""
+      PIPEWIRE_PROPS: ""
+      # XDG
+      XDG_CONFIG_HOME: "$SNAP_USER_DATA/.config"
+
+parts:
+  # ── Frontend (React + Vite) ──
+  frontend:
+    plugin: nil
+    source: .
+    build-packages:
+      - nodejs
+      - npm
+    build-environment:
+      - npm_config_cache: /root/.npm
+    build-snaps:
+      - node
+    override-build: |
+      set -eux
+      cd frontend
+      npm ci --prefer-offline
+      npm run build
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/frontend-dist"
+      cp -r dist/* "$SNAPCRAFT_PART_INSTALL/frontend-dist/"
+    prime:
+      - -frontend-dist/*
+
+  # ── Backend (Rust + Tauri 2) ──
+  backend:
+    plugin: rust
+    source: .
+    after: [frontend]
+    build-packages:
+      - gcc
+      - pkg-config
+      - libasound2-dev
+      - libjack-jackd2-dev
+      - libwebkit2gtk-4.1-dev
+      - libgtk-3-dev
+      - libayatana-appindicator3-dev
+      - libssl-dev
+      - libdbus-1-dev
+      - libsoup-3.0-dev
+      - libjavascriptcoregtk-4.1-dev
+    build-environment:
+      - CARGO_NET_RETRY: "3"
+      - CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+    override-build: |
+      set -eux
+      # Copy the frontend dist so Tauri can find it
+      cp -r "$SNAPCRAFT_STAGE/frontend-dist" frontend/dist
+      cd src-tauri
+      cargo build --release --features "cpal-backend,jack-backend"
+      # Install binary (cargo places it in workspace target/ from root)
+      install -Dm755 ../target/release/kicks \
+        "$SNAPCRAFT_PART_INSTALL/bin/kicks"
+      # Install icons
+      install -Dm644 ../src-tauri/icons/32x32.png \
+        "$SNAPCRAFT_PART_INSTALL/share/icons/hicolor/32x32/apps/com.kicks.guitar-workstation.png"
+      install -Dm644 ../src-tauri/icons/128x128.png \
+        "$SNAPCRAFT_PART_INSTALL/share/icons/hicolor/128x128/apps/com.kicks.guitar-workstation.png"
+      install -Dm644 ../src-tauri/icons/128x128@2x.png \
+        "$SNAPCRAFT_PART_INSTALL/share/icons/hicolor/256x256/apps/com.kicks.guitar-workstation.png"
+      # Desktop file
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/share/applications"
+      cat > "$SNAPCRAFT_PART_INSTALL/share/applications/com.kicks.guitar-workstation.desktop" <<'DESKTOP_EOF'
+      [Desktop Entry]
+      Type=Application
+      Name=Kicks
+      Comment=Guitar & Bass Workstation
+      Exec=kicks
+      Icon=com.kicks.guitar-workstation
+      Categories=Audio;AudioVideo;
+      Terminal=false
+      StartupNotify=true
+      DESKTOP_EOF
+
+    stage-packages:
+      # Audio
+      - libasound2
+      - libjack-jackd2-0
+      - pipewire
+      - pipewire-pulse
+      - alsa-utils
+      - libspa-0.2-modules
+      # WebKit (Tauri webview)
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+      - libayatana-appindicator3-1
+      - libsoup-3.0-0
+      - libjavascriptcoregtk-4.1-0
+      # GLib / System
+      - libglib2.0-0
+      - libdbus-1-3
+      - libpulse0
+      - libpulse-mainloop-glib0
+      - ca-certificates
+      - libxkbcommon0
+      - libegl1
+
+    prime:
+      - -usr/share/doc
+      - -usr/share/man
+      - -usr/lib/**/cmake
+      - -usr/include
+
+slots:
+  kicks-dbus:
+    interface: dbus
+    bus: session
+    name: com.kicks.guitar-workstation
+
+layout:
+  /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pipewire:
+    bind: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/pipewire
+  /usr/share/alsa:
+    bind: $SNAP/usr/share/alsa
+
+assumes:
+  - snapd2.43
