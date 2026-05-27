@@ -1,3 +1,4 @@
+use crate::nam::NamModelInfo;
 use crate::plugins::{IrInfo, PluginRegistry};
 
 /// The trait each audio engine backend must implement.
@@ -23,6 +24,12 @@ pub struct KicksEngine {
     plugin_registry: PluginRegistry,
     sample_rate: f64,
     buffer_size: u32,
+}
+
+impl Default for KicksEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl KicksEngine {
@@ -62,6 +69,69 @@ impl KicksEngine {
     /// Clear the loaded IR from the Cab plugin.
     pub fn clear_cab_ir(&mut self) -> bool {
         self.plugin_registry.clear_cab_ir()
+    }
+
+    /// Load a NAM neural model into the Nam plugin.
+    pub fn load_nam_to_plugin(&mut self, path: String, neural_model: crate::nam::NeuralModel) -> bool {
+        self.plugin_registry.load_nam_to_plugin(path, neural_model)
+    }
+
+    /// Get info about the currently loaded NAM model.
+    pub fn nam_model_info(&self) -> Option<NamModelInfo> {
+        self.plugin_registry.nam_model_info()
+    }
+
+    /// Clear the loaded NAM model.
+    pub fn clear_nam_model(&mut self) -> bool {
+        self.plugin_registry.clear_nam_model()
+    }
+
+    /// Get tuner info: (frequency_hz, note_name, cents_deviation, confidence).
+    pub fn tuner_info(&self) -> Option<(f32, String, f32, f32)> {
+        self.plugin_registry.tuner_info()
+    }
+
+    /// Get metronome state: (bpm, beats_per_bar, running).
+    pub fn metronome_state(&self) -> Option<(f32, u8, bool)> {
+        self.plugin_registry.metronome_state()
+    }
+
+    /// Get looper state: (mode_str, loop_time_seconds, has_loop).
+    pub fn looper_state(&self) -> Option<(String, f32, bool)> {
+        self.plugin_registry.looper_state()
+    }
+
+    /// Trigger a looper mode change.
+    pub fn trigger_looper_mode(&mut self, mode_value: f32) -> bool {
+        self.plugin_registry.trigger_looper_mode(mode_value)
+    }
+
+    /// Undo the last looper overdub.
+    pub fn looper_undo(&mut self) -> bool {
+        self.plugin_registry.looper_undo()
+    }
+
+    /// Clear the looper buffer.
+    pub fn looper_clear(&mut self) -> bool {
+        self.plugin_registry.looper_clear()
+    }
+
+    /// Build a bass-oriented signal chain.
+    pub fn build_bass_chain(&mut self) {
+        self.plugin_registry.build_bass_chain();
+        self.plugin_registry.init_all(self.sample_rate).ok();
+    }
+
+    /// Build a practice chain with tuner + metronome.
+    pub fn build_practice_chain(&mut self) {
+        self.plugin_registry.build_practice_chain();
+        self.plugin_registry.init_all(self.sample_rate).ok();
+    }
+
+    /// Build a looper-focused chain.
+    pub fn build_looper_chain(&mut self) {
+        self.plugin_registry.build_looper_chain();
+        self.plugin_registry.init_all(self.sample_rate).ok();
     }
 }
 

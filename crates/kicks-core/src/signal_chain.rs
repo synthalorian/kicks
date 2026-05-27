@@ -22,11 +22,19 @@ pub enum PluginType {
     Input,
     Boost,
     Amp,
-    /// Bass-specific amp with shifted EQ frequencies (100Hz/500Hz/4kHz).
+    /// Bass-specific amp with compressor, extended low-end, and shifted EQ.
     BassAmp,
     Cab,
+    /// Neural Amp Modeler — deep learning amp/cabinet model.
+    Nam,
     Delay,
     Reverb,
+    /// Real-time chromatic tuner using YIN pitch detection.
+    Tuner,
+    /// Practice metronome with configurable BPM and time signature.
+    Metronome,
+    /// Audio looper with record, overdub, playback, and reverse.
+    Looper,
     Output,
     Custom(String),
 }
@@ -56,6 +64,20 @@ impl Default for SignalChain {
                     enabled: true,
                     wet_dry: 1.0,
                     parameters: std::collections::HashMap::new(),
+                },
+                ChainSlot {
+                    id: "delay".to_string(),
+                    plugin_type: PluginType::Delay,
+                    enabled: true,
+                    wet_dry: 1.0,
+                    parameters: [("time".into(), 0.3), ("feedback".into(), 0.4), ("mix".into(), 0.3)].into_iter().collect(),
+                },
+                ChainSlot {
+                    id: "reverb".to_string(),
+                    plugin_type: PluginType::Reverb,
+                    enabled: true,
+                    wet_dry: 1.0,
+                    parameters: [("size".into(), 0.5), ("damping".into(), 0.5), ("mix".into(), 0.3)].into_iter().collect(),
                 },
                 ChainSlot {
                     id: "output".to_string(),

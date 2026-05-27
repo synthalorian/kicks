@@ -5,13 +5,15 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  release:
+    types: [published]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  rust:
-    name: Rust — cargo build & test
+  quality:
+    name: Rust — fmt, clippy, build, test
     runs-on: ubuntu-latest
 
     steps:
@@ -28,26 +30,25 @@ jobs:
           sudo apt-get install -y libjack-jackd2-dev libasound2-dev \
             libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
 
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          workspaces: "src-tauri -> target\ncrates/kicks-core -> target\ncrates/kicks-dsp -> target\ncrates/guitarix-rpc -> target"
 
       - name: Check formatting
         run: cargo fmt --check
 
       - name: Clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Build
         run: cargo build --all-features
 
       - name: Test
-        run: cargo test
+        run: cargo test --all-features
 
   frontend:
-    name: Frontend — npm build & lint
+    name: Frontend — lint, test, build, e2e
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -66,5 +67,139 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: TypeScript check
         run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+  security:
+    name: Security — audit & deny
+    runs-on: ubuntu-latest
+    needs: [quality]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target\ncrates/kicks-core -> target\ncrates/kicks-dsp -> target\ncrates/guitarix-rpc -> target"
+
+      - name: Cache cargo tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin
+          key: ${{ runner.os }}-cargo-tools-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-tools-
+
+      - name: Install cargo-audit
+        run: |
+          if ! command -v cargo-audit &> /dev/null; then
+            cargo install cargo-audit --locked
+          fi
+
+      - name: Audit dependencies
+        run: cargo audit
+
+      - name: Install cargo-deny
+        run: |
+          if ! command -v cargo-deny &> /dev/null; then
+            cargo install cargo-deny --locked
+          fi
+
+      - name: Check licenses & bans
+        run: cargo deny check
+
+  release:
+    name: Release — Tauri bundle (${{ matrix.platform }})
+    if: github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')
+    needs: [quality, frontend, security]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            args: ''
+            artifact-name: kicks-linux
+            artifact-path: |
+              src-tauri/target/release/bundle/appimage/*.AppImage
+              src-tauri/target/release/bundle/deb/*.deb
+          - platform: macos-latest
+            args: '--target universal-apple-darwin'
+            artifact-name: kicks-macos
+            artifact-path: |
+              src-tauri/target/release/bundle/dmg/*.dmg
+          - platform: windows-latest
+            args: '--target x86_64-pc-windows-msvc'
+            artifact-name: kicks-windows
+            artifact-path: |
+              src-tauri/target/release/bundle/msi/*.msi
+              src-tauri/target/release/bundle/nsis/*.exe
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install system dependencies (Linux)
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libjack-jackd2-dev libasound2-dev \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            libssl-dev
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install Tauri CLI
+        run: cargo install tauri-cli --version "~2.0" --locked
+
+      - name: Build Tauri bundle
+        run: cargo tauri build ${{ matrix.args }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-path }}
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact-path }}
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

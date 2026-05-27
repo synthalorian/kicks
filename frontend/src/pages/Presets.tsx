@@ -17,13 +17,8 @@ export function Presets() {
     fetchPresets();
   }, [fetchPresets]);
 
-  useEffect(() => {
-    if (banks.length > 0 && !activeBank) {
-      setActiveBank(banks[0].name);
-    }
-  }, [banks, activeBank]);
-
-  const activeBankData: BankDescriptor | undefined = banks.find((b) => b.name === activeBank);
+  const effectiveActiveBank = activeBank ?? banks[0]?.name ?? null;
+  const activeBankData: BankDescriptor | undefined = banks.find((b) => b.name === effectiveActiveBank);
 
   const filteredPresets = (activeBankData?.presets ?? []).filter(
     (p) =>
@@ -33,10 +28,10 @@ export function Presets() {
 
   const handleSave = useCallback(async () => {
     if (!saveName.trim()) return;
-    await savePreset(activeBank ?? 'Default', saveName.trim());
+    await savePreset(effectiveActiveBank ?? 'Default', saveName.trim());
     setSaveName('');
     setShowSave(false);
-  }, [saveName, activeBank, savePreset]);
+  }, [saveName, effectiveActiveBank, savePreset]);
 
   const handleLoad = useCallback(
     async (bankName: string, presetName: string) => {
@@ -100,7 +95,7 @@ export function Presets() {
             onKeyDown={(e) => e.key === 'Enter' && handleSave()}
           />
           <select
-            value={activeBank ?? ''}
+            value={effectiveActiveBank ?? ''}
             onChange={(e) => setActiveBank(e.target.value)}
             className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
           >
@@ -134,7 +129,7 @@ export function Presets() {
             key={b.name}
             onClick={() => setActiveBank(b.name)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-              activeBank === b.name
+              effectiveActiveBank === b.name
                 ? 'bg-[var(--accent)] text-white'
                 : 'bg-[var(--bg-surface)] text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)]'
             }`}
@@ -172,11 +167,11 @@ export function Presets() {
                   type="text"
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
-                  onBlur={() => activeBank && handleRename(activeBank, preset.name)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') activeBank && handleRename(activeBank, preset.name);
-                    if (e.key === 'Escape') setRenaming(null);
-                  }}
+                  onBlur={() => { if (effectiveActiveBank) handleRename(effectiveActiveBank, preset.name); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && effectiveActiveBank) handleRename(effectiveActiveBank, preset.name);
+                      if (e.key === 'Escape') setRenaming(null);
+                    }}
                   className="px-2 py-0.5 rounded border border-[var(--accent)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none"
                   autoFocus
                 />
@@ -212,7 +207,7 @@ export function Presets() {
               {/* Actions */}
               <div className="flex gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => activeBank && handleLoad(activeBank, preset.name)}
+                  onClick={() => { if (effectiveActiveBank) handleLoad(effectiveActiveBank, preset.name); }}
                   className="flex-1 px-2 py-1 rounded text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity cursor-pointer"
                 >
                   Load
@@ -227,7 +222,7 @@ export function Presets() {
                   Rename
                 </button>
                 <button
-                  onClick={() => activeBank && handleDelete(activeBank, preset.name)}
+                  onClick={() => { if (effectiveActiveBank) handleDelete(effectiveActiveBank, preset.name); }}
                   className="px-2 py-1 rounded text-xs border border-red-800 text-red-400 hover:bg-red-900/30 transition-colors cursor-pointer"
                 >
                   Delete

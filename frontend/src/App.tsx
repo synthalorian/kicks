@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toolbar } from './components/Toolbar';
 import { Sidebar, type Page } from './components/Sidebar';
@@ -10,43 +10,73 @@ import { MidiConfig } from './pages/MidiConfig';
 import { LiveMode } from './pages/LiveMode';
 import { AIAssistant } from './pages/AIAssistant';
 import { Settings } from './pages/Settings';
+import { Tools } from './pages/Tools';
+import { NAMBrowser } from './pages/NAMBrowser';
 import { useEngineStore } from './stores/engineStore';
 import { getVersion } from './lib/tauri';
 import { useHotkeys, type HotkeyDef } from './hooks/useHotkeys';
+import { applyTheme, getSavedThemeId, getThemeById } from './theme/theme';
 
 const pages: Record<Page, () => ReactNode> = {
   'signal-chain': SignalChain,
   presets: Presets,
   'ir-browser': IRBrowser,
+  'nam-browser': NAMBrowser,
   midi: MidiConfig,
   live: LiveMode,
+  tools: Tools,
   'ai-assistant': AIAssistant,
   settings: Settings,
 };
 
 function App() {
   const [activePage, setActivePage] = useState<Page>('signal-chain');
-  const [appVersion, setAppVersion] = useState('0.1.0 (dev)');
+  const [appVersion, setAppVersion] = useState('0.1.0');
   const status = useEngineStore((s) => s.status);
+  const isTauri = useEngineStore((s) => s.isTauri);
   const fetchStatus = useEngineStore((s) => s.fetchStatus);
   const start = useEngineStore((s) => s.start);
   const stop = useEngineStore((s) => s.stop);
+  const isStartingRef = useRef(false);
+
+  // Initialize theme on mount
+  useEffect(() => {
+    const savedId = getSavedThemeId();
+    applyTheme(getThemeById(savedId));
+  }, []);
 
   useEffect(() => {
     fetchStatus();
-    getVersion().then(setAppVersion).catch(() => {});
+    getVersion().then((v) => setAppVersion(v)).catch(() => {});
   }, [fetchStatus]);
 
-  // ── Global keyboard shortcuts ──
+  // Auto-start engine in browser mode so the UI isn't dead
+  useEffect(() => {
+    if (!isTauri && !status.running && !isStartingRef.current) {
+      isStartingRef.current = true;
+      (async () => {
+        try {
+          await start();
+        } catch {
+          // Browser might block autoplay — user can manually start
+        } finally {
+          isStartingRef.current = false;
+        }
+      })();
+    }
+  }, [isTauri, status.running, start]);
 
+  // ── Global keyboard shortcuts ──
   const pageKeys: Record<string, Page> = {
     '1': 'signal-chain',
     '2': 'presets',
     '3': 'ir-browser',
-    '4': 'midi',
-    '5': 'live',
-    '6': 'ai-assistant',
-    '7': 'settings',
+    '4': 'nam-browser',
+    '5': 'midi',
+    '6': 'live',
+    '7': 'tools',
+    '8': 'ai-assistant',
+    '9': 'settings',
   };
 
   const handleEngineToggle = useCallback(() => {
@@ -81,14 +111,16 @@ function App() {
     ? 'connected'
     : 'disconnected';
 
+  const modeLabel = isTauri ? 'DESKTOP' : 'BROWSER';
+
   const PageComponent = pages[activePage];
 
   return (
-    <div className="h-full flex flex-col">
-      <Toolbar engineStatus={engineIndicator} />
+    <div className="h-full flex flex-col grid-bg">
+      <Toolbar engineStatus={engineIndicator} modeLabel={modeLabel} />
       <main className="flex-1 flex overflow-hidden">
         <Sidebar activePage={activePage} onNavigate={setActivePage} />
-        <section className="flex-1 p-6 overflow-y-auto">
+        <section className="flex-1 overflow-y-auto p-5">
           <ErrorBoundary>
             <PageComponent />
           </ErrorBoundary>

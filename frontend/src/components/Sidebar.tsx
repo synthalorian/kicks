@@ -2,8 +2,10 @@ export type Page =
   | 'signal-chain'
   | 'presets'
   | 'ir-browser'
+  | 'nam-browser'
   | 'midi'
   | 'live'
+  | 'tools'
   | 'ai-assistant'
   | 'settings';
 
@@ -12,32 +14,68 @@ interface SidebarProps {
   onNavigate: (page: Page) => void;
 }
 
-const navItems: { id: Page; label: string }[] = [
-  { id: 'signal-chain', label: 'Signal Chain' },
-  { id: 'presets', label: 'Presets' },
-  { id: 'ir-browser', label: 'IR Browser' },
-  { id: 'midi', label: 'MIDI' },
-  { id: 'live', label: 'Live' },
-  { id: 'ai-assistant', label: 'AI Assistant' },
-  { id: 'settings', label: 'Settings' },
+const navItems: { id: Page; label: string; icon: string; kbd: string }[] = [
+  { id: 'signal-chain', label: 'Signal Chain', icon: '⛓', kbd: '1' },
+  { id: 'presets', label: 'Presets', icon: '💾', kbd: '2' },
+  { id: 'ir-browser', label: 'IR Browser', icon: '🔊', kbd: '3' },
+  { id: 'nam-browser', label: 'NAM Models', icon: '🧠', kbd: '4' },
+  { id: 'midi', label: 'MIDI', icon: '🎹', kbd: '5' },
+  { id: 'live', label: 'Live', icon: '🎸', kbd: '6' },
+  { id: 'tools', label: 'Tools', icon: '🛠', kbd: '7' },
+  { id: 'ai-assistant', label: 'AI Assistant', icon: '✨', kbd: '8' },
+  { id: 'settings', label: 'Settings', icon: '⚙', kbd: '9' },
 ];
 
 export function Sidebar({ activePage, onNavigate }: SidebarProps) {
   return (
-    <nav className="w-48 border-r border-[var(--border)] bg-[var(--bg-surface)] p-2 flex flex-col gap-1">
-      {navItems.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => onNavigate(item.id)}
-          className={`text-left px-3 py-2 rounded text-sm transition-colors cursor-pointer ${
-            activePage === item.id
-              ? 'bg-[var(--accent)] text-white font-medium'
-              : 'text-[var(--text)] hover:bg-[var(--surface-hover)]'
-          }`}
-        >
-          {item.label}
-        </button>
-      ))}
+    <nav className="w-52 border-r border-[var(--border)] bg-[var(--bg-surface)]/80 backdrop-blur flex flex-col gap-0.5 p-2 shrink-0">
+      <div className="px-3 py-2 mb-2">
+        <div className="font-display text-[10px] tracking-[0.2em] text-[var(--text-muted)] uppercase">
+          Navigation
+        </div>
+      </div>
+      {navItems.map((item) => {
+        const isActive = activePage === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => onNavigate(item.id)}
+            className={`group text-left px-3 py-2 rounded-lg text-sm transition-all cursor-pointer relative flex items-center gap-2.5 ${
+              isActive
+                ? 'bg-[var(--accent-bg)] text-[var(--accent)] font-semibold'
+                : 'text-[var(--text)] hover:bg-[var(--surface-hover)]'
+            }`}
+          >
+            {isActive && (
+              <span
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
+                style={{ background: 'var(--accent)' }}
+              />
+            )}
+            <span className="text-base opacity-80 group-hover:opacity-100 transition-opacity">
+              {item.icon}
+            </span>
+            <span className="flex-1">{item.label}</span>
+            <span
+              className={`text-[10px] px-1 py-0.5 rounded font-mono-data ${
+                isActive
+                  ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+                  : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+              }`}
+            >
+              {item.kbd}
+            </span>
+          </button>
+        );
+      })}
+
+      <div className="mt-auto px-3 py-3">
+        <div className="text-[9px] text-[var(--text-muted)] font-mono-data leading-relaxed">
+          <div>Space — toggle engine</div>
+          <div>Ctrl+Z — undo</div>
+          <div>Ctrl+Shift+Z — redo</div>
+        </div>
+      </div>
     </nav>
   );
 }

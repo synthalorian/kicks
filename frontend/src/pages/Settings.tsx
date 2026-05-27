@@ -3,19 +3,20 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useHotkeys } from '../hooks/useHotkeys';
 import * as api from '../lib/tauri';
 import type { AudioDeviceInfo } from '../types/tauri';
+import { THEMES, applyTheme, getSavedThemeId, saveThemeId, getThemeById } from '../theme/theme';
 
 export function Settings() {
   const { settings, loading, dirty, fetchSettings, saveSettings, updateSetting } =
     useSettingsStore();
+  const [activeTheme, setActiveTheme] = useState(getSavedThemeId());
   const [devices, setDevices] = useState<AudioDeviceInfo[]>([]);
-  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [devicesLoading, setDevicesLoading] = useState(true);
 
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
 
   useEffect(() => {
-    setDevicesLoading(true);
     api.listAudioDevices()
       .then(setDevices)
       .catch(() => {
@@ -24,17 +25,23 @@ export function Settings() {
       .finally(() => setDevicesLoading(false));
   }, []);
 
-  if (!settings) {
-    return <div className="text-[var(--text-muted)] text-sm">Loading settings...</div>;
-  }
-
   const handleSave = useCallback(() => {
     if (settings) saveSettings(settings);
   }, [settings, saveSettings]);
 
+  const handleThemeChange = useCallback((themeId: string) => {
+    setActiveTheme(themeId);
+    saveThemeId(themeId);
+    applyTheme(getThemeById(themeId));
+  }, []);
+
   useHotkeys([
     { key: 's', ctrl: true, handler: handleSave, ignoreInput: true },
   ]);
+
+  if (!settings) {
+    return <div className="text-[var(--text-muted)] text-sm">Loading settings...</div>;
+  }
 
   return (
     <div className="flex flex-col gap-6 max-w-xl">
@@ -238,6 +245,32 @@ export function Settings() {
               </p>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* Theme */}
+      <section className="border border-[var(--border)] rounded-xl p-4 bg-[var(--bg-surface)]">
+        <h3 className="text-sm font-medium text-[var(--text)] mb-3">Appearance</h3>
+        <div className="flex flex-wrap gap-2">
+          {THEMES.map((theme) => (
+            <button
+              key={theme.id}
+              onClick={() => handleThemeChange(theme.id)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
+                activeTheme === theme.id
+                  ? 'bg-[var(--accent)] text-white border-[var(--accent)] neon-button'
+                  : 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text)]'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <span
+                  className="w-3 h-3 rounded-full border border-white/20"
+                  style={{ background: theme.colors.accent }}
+                />
+                {theme.name}
+              </span>
+            </button>
+          ))}
         </div>
       </section>
 

@@ -182,9 +182,9 @@ mod tests {
         let mut output = vec![0.0f32; 64];
         conv.process(&input, &mut output);
 
-        for i in 0..64 {
-            assert!((output[i] - input[i]).abs() < 1e-6,
-                "Mismatch at {i}: expected {}, got {}", input[i], output[i]);
+        for (out, inp) in output.iter().zip(input.iter()) {
+            assert!((out - inp).abs() < 1e-6,
+                "Mismatch: expected {}, got {}", inp, out);
         }
     }
 
@@ -229,8 +229,8 @@ mod tests {
         // 50% wet, 50% dry
         conv.process_mixed(&input, &mut output, 0.5, 0.5);
         // y[n] = 0.5*x[n] + 0.5*(0.5*x[n]) = 0.75*x[n]
-        for i in 0..16 {
-            assert!((output[i] - 0.75).abs() < 1e-6);
+        for out in output.iter().take(16) {
+            assert!((out - 0.75).abs() < 1e-6);
         }
     }
 

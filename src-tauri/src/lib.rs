@@ -129,6 +129,25 @@ pub fn run() {
             commands::ir::load_ir_to_cab,
             commands::ir::get_cab_ir_info,
             commands::ir::clear_cab_ir,
+            // NAM Model
+            commands::nam::list_nam_files,
+            commands::nam::scan_nam_directory,
+            commands::nam::load_nam_model,
+            commands::nam::get_nam_info,
+            commands::nam::clear_nam_model,
+            // Tuner
+            commands::tuner::get_tuner_info,
+            // Metronome
+            commands::metronome::get_metronome_state,
+            // Looper
+            commands::looper::get_looper_state,
+            commands::looper::trigger_looper_mode,
+            commands::looper::looper_undo,
+            commands::looper::looper_clear,
+            // Bass Amp / Chain modes
+            commands::bass_amp::switch_to_bass_chain,
+            commands::bass_amp::switch_to_practice_chain,
+            commands::bass_amp::switch_to_looper_chain,
             // Settings
             commands::settings::get_settings,
             commands::settings::save_settings,

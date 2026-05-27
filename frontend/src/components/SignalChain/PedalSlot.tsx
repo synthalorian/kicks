@@ -23,8 +23,12 @@ function pluginMeta(pluginType: string) {
     Amp: { label: 'AMP', color: 'bg-red-700' },
     BassAmp: { label: 'BASS', color: 'bg-indigo-700' },
     Cab: { label: 'CAB', color: 'bg-stone-600' },
+    Nam: { label: 'NAM', color: 'bg-violet-700' },
     Delay: { label: 'DLY', color: 'bg-cyan-700' },
     Reverb: { label: 'REV', color: 'bg-sky-700' },
+    Tuner: { label: 'TUN', color: 'bg-emerald-700' },
+    Metronome: { label: 'MET', color: 'bg-orange-700' },
+    Looper: { label: 'LOP', color: 'bg-pink-700' },
   };
   return map[pluginType] ?? { label: pluginType.slice(0, 3).toUpperCase(), color: 'bg-zinc-500' };
 }
@@ -50,6 +54,10 @@ function pluginParams(pluginType: string): { id: string; label: string }[] {
         { id: 'low_cut', label: 'Low Cut' },
         { id: 'high_cut', label: 'High Cut' },
       ];
+    case 'Nam':
+      return [
+        { id: 'level', label: 'Level' },
+      ];
     case 'Delay':
       return [
         { id: 'time', label: 'Time' },
@@ -62,13 +70,29 @@ function pluginParams(pluginType: string): { id: string; label: string }[] {
         { id: 'damping', label: 'Damping' },
         { id: 'mix', label: 'Mix' },
       ];
+    case 'Tuner':
+      return [
+        { id: 'sensitivity', label: 'Sensitivity' },
+        { id: 'reference', label: 'Reference Hz' },
+      ];
+    case 'Metronome':
+      return [
+        { id: 'bpm', label: 'BPM' },
+        { id: 'volume', label: 'Volume' },
+      ];
+    case 'Looper':
+      return [
+        { id: 'feedback', label: 'Feedback' },
+        { id: 'mix', label: 'Mix' },
+        { id: 'speed', label: 'Speed' },
+      ];
     default:
       return [];
   }
 }
 
-export function PedalSlot({ slot, index: _index, isDragging, onToggle, onParamChange, onDragStart, onDragOver, onDrop }: PedalSlotProps) {
-  const [expanded, setExpanded] = useState(false);
+export function PedalSlot({ slot, isDragging, onToggle, onParamChange, onDragStart, onDragOver, onDrop }: PedalSlotProps) {
+  const [expanded, setExpanded] = useState(true);
   const [showAmpPresets, setShowAmpPresets] = useState(false);
   const meta = pluginMeta(slot.plugin_type);
   const params = pluginParams(slot.plugin_type);

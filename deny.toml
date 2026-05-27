@@ -1,0 +1,33 @@
+# cargo-deny configuration
+# Docs: https://embarkstudios.github.io/cargo-deny/checks/cfg.html
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "warn"
+
+[licenses]
+version = 2
+# Allow common open-source licenses used in the Rust ecosystem
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-DFS-2016",
+    "MPL-2.0",
+    "OpenSSL",
+    "Zlib",
+    "BSL-1.0",
+]
+confidence-threshold = 0.8
+
+[sources]
+unknown-registry = "warn"
+unknown-git = "warn"
+
+[bans]
+# Warn when multiple versions of the same crate are pulled in
+multiple-versions = "warn"

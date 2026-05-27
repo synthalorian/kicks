@@ -13,18 +13,26 @@ export function IRBrowser() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadFiles();
-    fetchLoadedIr();
+    (async () => {
+      try {
+        const results = await api.listIrFiles();
+        setFiles(results);
+      } catch (err) {
+        setError('Failed to list IR files');
+        console.error('Failed to list IR files:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+    (async () => {
+      try {
+        const info = await api.getCabIrInfo();
+        setLoadedIr(info);
+      } catch (err) {
+        console.error('Failed to get loaded IR info:', err);
+      }
+    })();
   }, []);
-
-  const fetchLoadedIr = async () => {
-    try {
-      const info = await api.getCabIrInfo();
-      setLoadedIr(info);
-    } catch (err) {
-      console.error('Failed to get loaded IR info:', err);
-    }
-  };
 
   const loadFiles = async () => {
     setLoading(true);

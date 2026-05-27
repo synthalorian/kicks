@@ -33,7 +33,6 @@ export function AmpPresetSelector({ onApplyPreset, onClose }: AmpPresetSelectorP
   const [applying, setApplying] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
     api.listAmpPresets().then((data) => {
       setPresets(data);
       setLoading(false);

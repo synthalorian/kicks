@@ -1,16 +1,11 @@
 use serde::{Deserialize, Serialize};
 
 /// AI provider selection.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum AiProvider {
+    #[default]
     Anthropic,
     OpenAI,
-}
-
-impl Default for AiProvider {
-    fn default() -> Self {
-        Self::Anthropic
-    }
 }
 
 impl AiProvider {
@@ -56,6 +51,7 @@ pub struct KicksConfig {
     pub active_ir_path: String,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for KicksConfig {
     fn default() -> Self {
         Self {

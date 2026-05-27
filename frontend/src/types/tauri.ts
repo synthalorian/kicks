@@ -139,6 +139,15 @@ export interface SceneDetail {
   signal_chain: ChainSnapshot;
 }
 
+/** Result of loading a NAM model into the Nam plugin */
+export interface NamModelInfo {
+  path: string;
+  file_name: string;
+  architecture: string;
+  sample_rate: number;
+  num_parameters: number;
+}
+
 /** Result of loading an IR file into the Cab plugin */
 export interface IrLoadResult {
   path: string;
