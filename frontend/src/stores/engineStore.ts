@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { EngineStatus, ChainSnapshot } from '../types/tauri';
 import * as api from '../lib/tauri';
+import { webAudioEngine } from '../audio/audioEngine';
+
+function isTauriAvailable(): boolean {
+  return !!(window as unknown as Record<string, unknown>).__TAURI__;
+}
 
 interface EngineState {
   status: EngineStatus;
@@ -10,6 +15,8 @@ interface EngineState {
   levels: number[];
   /** Error from the last level poll (e.g. engine not running). */
   levelsError: string | null;
+  /** Whether the app is running inside Tauri (real Rust backend) or browser (Web Audio). */
+  isTauri: boolean;
 
   /** Fetch engine status from backend */
   fetchStatus: () => Promise<void>;
@@ -43,18 +50,32 @@ export const useEngineStore = create<EngineState>((set, get) => ({
   loading: false,
   levels: [],
   levelsError: null,
+  isTauri: isTauriAvailable(),
 
   fetchStatus: async () => {
-    const status = await api.engineStatus();
-    set({ status });
+    if (get().isTauri) {
+      const status = await api.engineStatus();
+      set({ status });
+    } else {
+      const state = webAudioEngine.getState();
+      set({ status: { running: state.running, sample_rate: state.sampleRate, buffer_size: state.bufferSize } });
+    }
   },
 
   start: async () => {
     set({ loading: true });
     try {
-      await api.startEngine();
-      await get().fetchStatus();
-      await get().fetchChain();
+      if (get().isTauri) {
+        await api.startEngine();
+        await get().fetchStatus();
+        await get().fetchChain();
+      } else {
+        await webAudioEngine.start();
+        const state = webAudioEngine.getState();
+        const chain = await api.getSignalChain();
+        webAudioEngine.applyChain(chain);
+        set({ status: { running: state.running, sample_rate: state.sampleRate, buffer_size: state.bufferSize }, chain });
+      }
     } finally {
       set({ loading: false });
     }
@@ -63,7 +84,11 @@ export const useEngineStore = create<EngineState>((set, get) => ({
   stop: async () => {
     set({ loading: true });
     try {
-      await api.stopEngine();
+      if (get().isTauri) {
+        await api.stopEngine();
+      } else {
+        await webAudioEngine.stop();
+      }
       set({ status: { running: false, sample_rate: 0, buffer_size: 0 } });
     } finally {
       set({ loading: false });
@@ -72,6 +97,9 @@ export const useEngineStore = create<EngineState>((set, get) => ({
 
   fetchChain: async () => {
     const chain = await api.getSignalChain();
+    if (!get().isTauri && get().status.running) {
+      webAudioEngine.applyChain(chain);
+    }
     set({ chain });
   },
 
@@ -81,31 +109,110 @@ export const useEngineStore = create<EngineState>((set, get) => ({
   },
 
   updateSlot: async (slotId, changes) => {
-    await api.updateSlot(slotId, changes);
-    await get().fetchChain();
+    if (get().isTauri) {
+      await api.updateSlot(slotId, changes);
+      await get().fetchChain();
+    } else {
+      const chain = get().chain;
+      if (!chain) return;
+      const slot = chain.slots.find((s) => s.id === slotId);
+      if (!slot) return;
+      if (changes.enabled !== undefined) {
+        slot.enabled = changes.enabled;
+        webAudioEngine.toggleSlot(slotId, changes.enabled);
+      }
+      if (changes.parameters) {
+        Object.entries(changes.parameters).forEach(([k, v]) => {
+          slot.parameters[k] = v;
+          webAudioEngine.setParameter(slotId, k, v);
+        });
+      }
+      if (changes.wet_dry !== undefined) {
+        slot.wet_dry = changes.wet_dry;
+      }
+      set({ chain: { ...chain, slots: [...chain.slots] } });
+    }
   },
 
   toggleSlot: async (slotId) => {
-    await api.toggleSlot(slotId);
-    await get().fetchChain();
+    if (get().isTauri) {
+      await api.toggleSlot(slotId);
+      await get().fetchChain();
+    } else {
+      const chain = get().chain;
+      if (!chain) return;
+      const slot = chain.slots.find((s) => s.id === slotId);
+      if (slot) {
+        slot.enabled = !slot.enabled;
+        webAudioEngine.toggleSlot(slotId, slot.enabled);
+        set({ chain: { ...chain, slots: [...chain.slots] } });
+      }
+    }
   },
 
   moveSlot: async (fromIdx, toIdx) => {
-    await api.moveSlot(fromIdx, toIdx);
-    await get().fetchChain();
+    if (get().isTauri) {
+      await api.moveSlot(fromIdx, toIdx);
+      await get().fetchChain();
+    } else {
+      const chain = get().chain;
+      if (!chain) return;
+      const slots = [...chain.slots];
+      const [moved] = slots.splice(fromIdx, 1);
+      if (!moved) return;
+      slots.splice(toIdx, 0, moved);
+      set({ chain: { ...chain, slots } });
+    }
   },
 
   setParameter: async (id, value) => {
-    await api.setParameter(id, value);
+    if (get().isTauri) {
+      await api.setParameter(id, value);
+    } else {
+      const chain = get().chain;
+      if (!chain) return;
+
+      // Try to parse "slotId.paramId" format
+      let slotId: string | null = null;
+      let paramId: string | null = null;
+
+      const parts = id.split('.');
+      if (parts.length === 2 && chain.slots.some((s) => s.id === parts[0])) {
+        slotId = parts[0];
+        paramId = parts[1];
+      } else {
+        // Search for a slot that has this parameter
+        for (const slot of chain.slots) {
+          if (id in slot.parameters) {
+            slotId = slot.id;
+            paramId = id;
+            break;
+          }
+        }
+      }
+
+      if (!slotId || !paramId) return;
+
+      const slot = chain.slots.find((s) => s.id === slotId);
+      if (!slot || !(paramId in slot.parameters)) return;
+
+      slot.parameters[paramId] = value;
+      webAudioEngine.setParameter(slotId, paramId, value);
+      set({ chain: { ...chain, slots: [...chain.slots] } });
+    }
   },
 
   pollLevels: async () => {
-    try {
-      const levels = await api.getAudioLevels();
+    if (get().isTauri) {
+      try {
+        const levels = await api.getAudioLevels();
+        set({ levels, levelsError: null });
+      } catch (err) {
+        set({ levels: [], levelsError: String(err) });
+      }
+    } else {
+      const levels = webAudioEngine.getLevels();
       set({ levels, levelsError: null });
-    } catch (err) {
-      // Engine not running — clear levels
-      set({ levels: [], levelsError: String(err) });
     }
   },
 
@@ -114,7 +221,7 @@ export const useEngineStore = create<EngineState>((set, get) => ({
       await api.undoSignalChain();
       await get().fetchChain();
     } catch {
-      // Nothing to undo — silently ignored
+      // Nothing to undo
     }
   },
 
@@ -123,7 +230,7 @@ export const useEngineStore = create<EngineState>((set, get) => ({
       await api.redoSignalChain();
       await get().fetchChain();
     } catch {
-      // Nothing to redo — silently ignored
+      // Nothing to redo
     }
   },
 }));

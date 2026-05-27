@@ -14,7 +14,7 @@ pub struct Preset {
 }
 
 /// A collection of presets, organized into banks.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PresetCollection {
     pub banks: Vec<Bank>,
 }

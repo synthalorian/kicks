@@ -79,7 +79,7 @@ impl SceneCollection {
             return None;
         }
         let scene = self.scenes.remove(from);
-        let insert_at = if from < to { to } else { to };
+        let insert_at = to;
         self.scenes.insert(insert_at, scene);
         Some(())
     }

@@ -88,6 +88,22 @@ function simulate<T>(cmd: string, _args?: Record<string, unknown>): T {
       return null as T;
     case 'clear_cab_ir':
       return undefined as T;
+    case 'load_nam_model':
+      return {
+        path: _args?.path ?? '',
+        file_name: (_args?.path as string ?? '').split('/').pop() ?? 'unknown.nam',
+        architecture: 'WaveNet',
+        sample_rate: 48000,
+        num_parameters: 42000,
+      } as T;
+    case 'get_nam_info':
+      return null as T;
+    case 'clear_nam_model':
+      return undefined as T;
+    case 'list_nam_files':
+      return [] as T;
+    case 'scan_nam_directory':
+      return [] as T;
     case 'list_scenes':
       return [
         { index: 0, name: 'Clean', slot_count: 7, is_active: true },
@@ -121,6 +137,24 @@ function simulate<T>(cmd: string, _args?: Record<string, unknown>): T {
     case 'next_scene':
     case 'prev_scene':
       return { index: 0, name: 'Clean', slot_count: 7, is_active: true } as T;
+    // ── Tuner ──
+    case 'get_tuner_info':
+      return { frequency: 440.0, note: 'A4', cents: 0.2, confidence: 0.95, active: true } as T;
+    // ── Metronome ──
+    case 'get_metronome_state':
+      return { bpm: 120.0, beats_per_bar: 4, running: false } as T;
+    // ── Looper ──
+    case 'get_looper_state':
+      return { mode: 'idle', loop_time_seconds: 0.0, has_loop: false } as T;
+    case 'trigger_looper_mode':
+    case 'looper_undo':
+    case 'looper_clear':
+      return true as T;
+    // ── Bass Amp / Chain modes ──
+    case 'switch_to_bass_chain':
+    case 'switch_to_practice_chain':
+    case 'switch_to_looper_chain':
+      return undefined as T;
     case 'list_amp_presets':
       return [
         { name: 'American Clean', description: 'Crisp, sparkling Fender-style clean tone. Bright highs and punchy lows.', tags: ['clean', 'fender', 'american'], gain: 0.15, master: 0.80, bass: 0.60, mid: 0.50, treble: 0.60, drive: 0.10 },
@@ -327,10 +361,96 @@ export async function applyAiPreset(signalChain: import('../types/tauri').AiSign
   return invoke('apply_ai_preset', { signal_chain: signalChain });
 }
 
+// ── NAM Model ──
+
+export async function listNamFiles() {
+  return invoke<{ path: string; name: string }[]>('list_nam_files');
+}
+
+export async function scanNamDirectory(dirPath: string) {
+  return invoke<{ path: string; name: string }[]>('scan_nam_directory', { dir_path: dirPath });
+}
+
+export async function loadNamModel(path: string) {
+  return invoke<import('../types/tauri').NamModelInfo>('load_nam_model', { path });
+}
+
+export async function getNamInfo() {
+  return invoke<import('../types/tauri').NamModelInfo | null>('get_nam_info');
+}
+
+export async function clearNamModel(): Promise<void> {
+  return invoke('clear_nam_model');
+}
+
 // ── Audio Levels ──
 
 export async function getAudioLevels(): Promise<number[]> {
   return invoke<number[]>('get_audio_levels');
+}
+
+// ── Tuner ──
+
+export interface TunerInfo {
+  frequency: number;
+  note: string;
+  cents: number;
+  confidence: number;
+  active: boolean;
+}
+
+export async function getTunerInfo(): Promise<TunerInfo> {
+  return invoke<TunerInfo>('get_tuner_info');
+}
+
+// ── Metronome ──
+
+export interface MetronomeState {
+  bpm: number;
+  beats_per_bar: number;
+  running: boolean;
+}
+
+export async function getMetronomeState(): Promise<MetronomeState> {
+  return invoke<MetronomeState>('get_metronome_state');
+}
+
+// ── Looper ──
+
+export interface LooperState {
+  mode: string;
+  loop_time_seconds: number;
+  has_loop: boolean;
+}
+
+export async function getLooperState(): Promise<LooperState> {
+  return invoke<LooperState>('get_looper_state');
+}
+
+export async function triggerLooperMode(mode: number): Promise<boolean> {
+  return invoke<boolean>('trigger_looper_mode', { mode });
+}
+
+export async function looperUndo(): Promise<boolean> {
+  return invoke<boolean>('looper_undo');
+}
+
+export async function looperClear(): Promise<boolean> {
+  return invoke<boolean>('looper_clear');
+}
+
+// ── Chain Mode Switching ──
+
+export async function switchToBassChain(): Promise<void> {
+  return invoke('switch_to_bass_chain');
+}
+
+export async function switchToPracticeChain(): Promise<void> {
+  return invoke('switch_to_practice_chain');
+}
+
+export async function switchToLooperChain(): Promise<void> {
+  return invoke('switch_to_looper_chain');
 }
 
 // ── Amp Presets ──

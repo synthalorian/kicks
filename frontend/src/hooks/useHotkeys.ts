@@ -33,7 +33,10 @@ export interface HotkeyDef {
 export function useHotkeys(hotkeys: HotkeyDef[]): void {
   // Keep a ref so the effect doesn't re-subscribe on every render.
   const hotkeysRef = useRef(hotkeys);
-  hotkeysRef.current = hotkeys;
+
+  useEffect(() => {
+    hotkeysRef.current = hotkeys;
+  }, [hotkeys]);
 
   useEffect(() => {
     const listener = (e: KeyboardEvent) => {

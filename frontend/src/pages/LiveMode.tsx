@@ -35,7 +35,6 @@ function SceneDetailView({ sceneName, sceneIndex, slotCount }: { sceneName: stri
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
     api.getScene(sceneIndex).then((detail) => {
       setSlots(detail.signal_chain.slots);
       setLoading(false);
@@ -147,10 +146,6 @@ export function LiveMode() {
   const [renameValue, setRenameValue] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadScenes();
-  }, []);
 
   const loadScenes = async () => {
     setLoading(true);
@@ -280,6 +275,22 @@ export function LiveMode() {
     } catch (err) {
       setError(typeof err === 'string' ? err : 'Failed to reorder scenes');
     }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await api.listScenes();
+        setScenes(result);
+        const active = result.find((s) => s.is_active);
+        setActiveScene(active?.index ?? null);
+      } catch (err) {
+        setError('Failed to load scenes');
+        console.error('Failed to load scenes:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   useHotkeys([

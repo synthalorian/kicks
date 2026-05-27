@@ -17,6 +17,7 @@ pub struct AmpPreset {
 }
 
 impl AmpPreset {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(name: &str, description: &str, tags: Vec<&str>, gain: f32, master: f32, bass: f32, mid: f32, treble: f32, drive: f32) -> Self {
         Self {
             name: name.to_string(),
@@ -33,6 +34,7 @@ impl AmpPreset {
     }
 
     /// Create a bass-specific preset with bass_mode=1.0 (shifted EQ).
+    #[allow(clippy::too_many_arguments)]
     pub fn new_bass(name: &str, description: &str, tags: Vec<&str>, gain: f32, master: f32, bass: f32, mid: f32, treble: f32, drive: f32) -> Self {
         let mut p = Self::new(name, description, tags, gain, master, bass, mid, treble, drive);
         p.bass_mode = 1.0;

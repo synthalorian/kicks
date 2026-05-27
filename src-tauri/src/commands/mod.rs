@@ -1,9 +1,14 @@
 pub mod ai;
 pub mod amp_presets;
+pub mod bass_amp;
 pub mod engine;
 pub mod ir;
+pub mod looper;
+pub mod metronome;
 pub mod midi;
+pub mod nam;
 pub mod presets;
 pub mod scenes;
 pub mod settings;
 pub mod signal_chain;
+pub mod tuner;

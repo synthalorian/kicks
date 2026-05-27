@@ -3,6 +3,13 @@ use std::collections::HashMap;
 use std::f32::consts::PI;
 
 use crate::convolution::Convolver;
+use crate::nam::{NamModelInfo, NeuralModel};
+use crate::bass_amp::BassAmp;
+use crate::tuner::Tuner;
+use crate::metronome::Metronome;
+use crate::looper::Looper;
+#[cfg(feature = "fft-convolution")]
+use crate::fft_convolution::FftConvolver;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DSP Utilities
@@ -259,6 +266,12 @@ pub struct Boost {
     gain: f32,
 }
 
+impl Default for Boost {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Boost {
     pub fn new() -> Self {
         Self { gain: 1.5 }
@@ -289,9 +302,8 @@ impl Plugin for Boost {
     }
 
     fn set_parameter(&mut self, id: &str, value: f32) {
-        match id {
-            "gain" => self.gain = value * 2.0, // 0..1 → 0..2
-            _ => {}
+        if id == "gain" {
+            self.gain = value * 2.0; // 0..1 → 0..2
         }
     }
 
@@ -328,6 +340,12 @@ pub struct Amp {
     treble_filter: Option<BiquadFilter>,
     /// Dirty flag — recalculate filters on next process
     params_dirty: bool,
+}
+
+impl Default for Amp {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Amp {
@@ -485,6 +503,12 @@ pub struct Cab {
     ir_path: Option<String>,
 }
 
+impl Default for Cab {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Cab {
     pub fn new() -> Self {
         Self {
@@ -626,6 +650,118 @@ impl Plugin for Cab {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Nam — Neural Amp Modeler
+// ═══════════════════════════════════════════════════════════════════════════════
+
+pub struct Nam {
+    level: f32,
+    sample_rate: f32,
+    model: Option<NeuralModel>,
+    model_path: Option<String>,
+}
+
+impl Default for Nam {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Nam {
+    pub fn new() -> Self {
+        Self {
+            level: 1.0,
+            sample_rate: 48000.0,
+            model: None,
+            model_path: None,
+        }
+    }
+
+    /// Load a NAM neural network model.
+    pub fn load_nam_model(&mut self, path: String, neural_model: NeuralModel) {
+        let file_name = path.rsplit('/').next().unwrap_or(&path).to_string();
+        let arch = neural_model.architecture().to_string();
+        let sr = neural_model.sample_rate();
+        self.model = Some(neural_model);
+        self.model_path = Some(path);
+        tracing::info!(
+            "Nam: loaded model '{}' (arch: {}, {} Hz, {} params)",
+            file_name, arch, sr, 0
+        );
+    }
+
+    /// Clear the loaded NAM model, falling back to passthrough.
+    pub fn clear_nam_model(&mut self) {
+        self.model = None;
+        self.model_path = None;
+        tracing::info!("Nam: model cleared, using passthrough");
+    }
+
+    /// Get information about the currently loaded model, if any.
+    pub fn nam_info(&self) -> Option<NamModelInfo> {
+        self.model.as_ref().map(|m| {
+            let path = self.model_path.clone().unwrap_or_default();
+            let file_name = path.rsplit('/').next().unwrap_or(&path).to_string();
+            NamModelInfo {
+                path,
+                file_name,
+                architecture: m.architecture().to_string(),
+                sample_rate: m.sample_rate(),
+                num_parameters: 0,
+            }
+        })
+    }
+
+    /// Whether a model is currently loaded.
+    pub fn has_nam(&self) -> bool {
+        self.model.is_some()
+    }
+}
+
+impl Plugin for Nam {
+    fn name(&self) -> &str {
+        "nam"
+    }
+
+    fn init(&mut self, sample_rate: f64) -> anyhow::Result<()> {
+        self.sample_rate = sample_rate as f32;
+        Ok(())
+    }
+
+    fn process(&mut self, input: &[f32], output: &mut [f32]) -> anyhow::Result<()> {
+        let level = self.level;
+        if input.len() != output.len() {
+            anyhow::bail!("Nam: input/output length mismatch ({} vs {})", input.len(), output.len());
+        }
+        if let Some(ref mut model) = self.model {
+            model.process(input, output);
+        } else {
+            output.copy_from_slice(input);
+        }
+        for sample in output.iter_mut() {
+            *sample *= level;
+        }
+        Ok(())
+    }
+
+    fn get_parameter(&self, id: &str) -> Option<f32> {
+        match id {
+            "level" => Some(self.level),
+            "model_loaded" => Some(if self.model.is_some() { 1.0 } else { 0.0 }),
+            _ => None,
+        }
+    }
+
+    fn set_parameter(&mut self, id: &str, value: f32) {
+        if id == "level" {
+            self.level = value.clamp(0.0, 1.0);
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Delay — Digital delay line with feedback
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -643,6 +779,12 @@ pub struct Delay {
     line: Option<DelayLine>,
     /// Current delay in samples
     delay_samples: f32,
+}
+
+impl Default for Delay {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Delay {
@@ -809,6 +951,12 @@ pub struct Reverb {
     params_dirty: bool,
 }
 
+impl Default for Reverb {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Reverb {
     pub fn new() -> Self {
         Self {
@@ -823,7 +971,7 @@ impl Reverb {
     }
 
     fn rebuild(&mut self) {
-        let sr_ratio = (self.sample_rate / 44100.0).max(0.5).min(2.0);
+        let sr_ratio = (self.sample_rate / 44100.0).clamp(0.5, 2.0);
         let size_scale = 0.5 + self.size * 1.5; // 0.5..2.0
 
         self.combs.clear();
@@ -922,6 +1070,12 @@ pub struct PluginRegistry {
     levels: Vec<f32>,
 }
 
+impl Default for PluginRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PluginRegistry {
     pub fn new() -> Self {
         Self {
@@ -1010,9 +1164,12 @@ impl PluginRegistry {
 
     pub fn set_parameter(&mut self, id: &str, value: f32) {
         self.parameters.insert(id.to_string(), value);
-        // Also set on the plugin if it has this parameter
+        // Only set on plugins that actually expose this parameter,
+        // avoiding collisions when multiple plugins share parameter names.
         for plugin in &mut self.plugins {
-            plugin.set_parameter(id, value);
+            if plugin.get_parameter(id).is_some() {
+                plugin.set_parameter(id, value);
+            }
         }
     }
 
@@ -1034,6 +1191,135 @@ impl PluginRegistry {
         self.add_plugin(Box::new(Cab::new()));
         self.add_plugin(Box::new(Delay::new()));
         self.add_plugin(Box::new(Reverb::new()));
+    }
+
+    /// Build a bass signal chain: Boost → BassAmp → Cab → Delay → Reverb.
+    pub fn build_bass_chain(&mut self) {
+        self.clear();
+        self.add_plugin(Box::new(Boost::new()));
+        self.add_plugin(Box::new(BassAmp::new()));
+        self.add_plugin(Box::new(Cab::new()));
+        self.add_plugin(Box::new(Delay::new()));
+        self.add_plugin(Box::new(Reverb::new()));
+    }
+
+    /// Build a practice chain with tuner and metronome.
+    pub fn build_practice_chain(&mut self) {
+        self.clear();
+        self.add_plugin(Box::new(Tuner::new()));
+        self.add_plugin(Box::new(Metronome::new()));
+        self.add_plugin(Box::new(Amp::new()));
+        self.add_plugin(Box::new(Cab::new()));
+    }
+
+    /// Build a looper chain: Amp → Cab → Looper.
+    pub fn build_looper_chain(&mut self) {
+        self.clear();
+        self.add_plugin(Box::new(Amp::new()));
+        self.add_plugin(Box::new(Cab::new()));
+        self.add_plugin(Box::new(Looper::new()));
+    }
+
+    /// Add a tuner plugin to the chain.
+    pub fn add_tuner(&mut self) {
+        self.add_plugin(Box::new(Tuner::new()));
+    }
+
+    /// Add a metronome plugin to the chain.
+    pub fn add_metronome(&mut self) {
+        self.add_plugin(Box::new(Metronome::new()));
+    }
+
+    /// Add a looper plugin to the chain.
+    pub fn add_looper(&mut self) {
+        self.add_plugin(Box::new(Looper::new()));
+    }
+
+    /// Add a bass amp plugin to the chain.
+    pub fn add_bass_amp(&mut self) {
+        self.add_plugin(Box::new(BassAmp::new()));
+    }
+
+    /// Find the Tuner plugin and get its current pitch info.
+    pub fn tuner_info(&self) -> Option<(f32, String, f32, f32)> {
+        for plugin in &self.plugins {
+            if let Some(tuner) = plugin.as_any().downcast_ref::<Tuner>() {
+                return Some((
+                    tuner.frequency(),
+                    tuner.note(),
+                    tuner.cents(),
+                    tuner.detection_confidence(),
+                ));
+            }
+        }
+        None
+    }
+
+    /// Find the Metronome plugin and get its current state.
+    pub fn metronome_state(&self) -> Option<(f32, u8, bool)> {
+        for plugin in &self.plugins {
+            if let Some(metro) = plugin.as_any().downcast_ref::<Metronome>() {
+                // Access internal fields via parameter getters
+                let bpm = metro.get_parameter("bpm").unwrap_or(120.0);
+                let beats = (metro.get_parameter("beats_per_bar").unwrap_or(4.0) as u8).max(1);
+                let running = metro.get_parameter("running").unwrap_or(0.0) > 0.5;
+                return Some((bpm, beats, running));
+            }
+        }
+        None
+    }
+
+    /// Find the Looper plugin and get its current state.
+    pub fn looper_state(&self) -> Option<(String, f32, bool)> {
+        for plugin in &self.plugins {
+            if let Some(looper) = plugin.as_any().downcast_ref::<Looper>() {
+                let mode_str = match looper.get_parameter("mode").unwrap_or(0.0) as i32 {
+                    0 => "idle",
+                    1 => "record",
+                    2 => "overdub",
+                    3 => "play",
+                    4 => "stop",
+                    _ => "unknown",
+                };
+                let time = looper.get_parameter("loop_time").unwrap_or(0.0);
+                let has_loop = looper.get_parameter("has_loop").unwrap_or(0.0) > 0.5;
+                return Some((mode_str.to_string(), time, has_loop));
+            }
+        }
+        None
+    }
+
+    /// Trigger a mode change on the Looper plugin.
+    pub fn trigger_looper_mode(&mut self, mode_value: f32) -> bool {
+        for plugin in &mut self.plugins {
+            if let Some(looper) = plugin.as_any_mut().downcast_mut::<Looper>() {
+                looper.set_parameter("mode", mode_value);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Undo the last overdub on the Looper plugin.
+    pub fn looper_undo(&mut self) -> bool {
+        for plugin in &mut self.plugins {
+            if let Some(looper) = plugin.as_any_mut().downcast_mut::<Looper>() {
+                looper.undo();
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Clear the Looper plugin's buffer.
+    pub fn looper_clear(&mut self) -> bool {
+        for plugin in &mut self.plugins {
+            if let Some(looper) = plugin.as_any_mut().downcast_mut::<Looper>() {
+                looper.clear();
+                return true;
+            }
+        }
+        false
     }
 
     /// Get a reference to a plugin by index (for direct access).
@@ -1079,6 +1365,38 @@ impl PluginRegistry {
         for plugin in &mut self.plugins {
             if let Some(cab) = plugin.as_any_mut().downcast_mut::<Cab>() {
                 cab.clear_ir();
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Find the Nam plugin in the chain and load a neural model into it.
+    pub fn load_nam_to_plugin(&mut self, path: String, neural_model: NeuralModel) -> bool {
+        for plugin in &mut self.plugins {
+            if let Some(nam) = plugin.as_any_mut().downcast_mut::<Nam>() {
+                nam.load_nam_model(path, neural_model);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Get NAM model info from the Nam plugin, if loaded.
+    pub fn nam_model_info(&self) -> Option<NamModelInfo> {
+        for plugin in &self.plugins {
+            if let Some(nam) = plugin.as_any().downcast_ref::<Nam>() {
+                return nam.nam_info();
+            }
+        }
+        None
+    }
+
+    /// Clear the NAM model from the Nam plugin.
+    pub fn clear_nam_model(&mut self) -> bool {
+        for plugin in &mut self.plugins {
+            if let Some(nam) = plugin.as_any_mut().downcast_mut::<Nam>() {
+                nam.clear_nam_model();
                 return true;
             }
         }

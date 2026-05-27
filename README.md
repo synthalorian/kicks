@@ -1,310 +1,218 @@
-# Kicks Guitar Workstation 🦎🎸
+# 🎸 Kicks Guitar Workstation
 
-**Kicks** is an open-source guitar & bass workstation for Linux — a desktop app
-for guitar and bass tone shaping with a native DSP engine. Built with Rust +
-Tauri 2 + React. All state persists to `~/.config/kicks/`.
+[![CI](https://github.com/synthalorian/kicks/actions/workflows/ci.yml/badge.svg)](https://github.com/synthalorian/kicks/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Current Status
+A modern, open-source guitar amp simulator and effects workstation built with **Tauri** (Rust) and **React**. Kicks combines real-time DSP, AI-powered tone generation, impulse response loading, NAM model support, MIDI control, and a scene-based live mode — all in a fast, native desktop app.
 
-```
-▲ Data persistence            —  ✅ Presets, config, signal chain, scenes, MIDI → ~/.config/kicks/
-▲ Signal chain reorder        —  ✅ move_slot command + drag-drop fully wired
-▲ IR file loading             —  ✅ File dialog, WAV metadata parsing, directory scanning
-▲ Frontend UI (7 pages)       —  ✅ React 19 + Tailwind CSS 4 + error boundaries
-▲ Tauri IPC layer             —  ✅ 30+ commands (engine, signal chain, presets, IR, settings, MIDI, AI, amp presets, scenes)
-▲ Frontend State              —  ✅ Zustand stores + Tauri invoke wrapper + simulated dev fallback
-▲ Native DSP engine           —  ✅ Boost → Amp/BassAmp (3-band EQ + waveshaper) → Cab (LP/HP + convolution IR) → Delay → Reverb
-▲ Lock-free param channel     —  ✅ SPSC ring buffer (set_parameter never blocks audio callback)
-▲ Real-time audio I/O         —  ✅ CPAL full-duplex (ALSA/PipeWire/CoreAudio/WASAPI), JACK feature-gated
-▲ Audio flow visualization    —  ✅ Per-plugin RMS VU meters with dBFS labels, polled at 20 Hz
-▲ Audio device enumeration    —  ✅ CPAL device listing in Settings dropdown, auto-restart on config change
-▲ guitarix-rpc                —  ✅ Full JSON-RPC 2.0 client (presets, MIDI, tuner, banks, plugins, LADSPA)
-▲ Data models                 —  ✅ Signal chain, presets, MIDI mapping, config, scenes, amp presets
-▲ MIDI device integration     —  ✅ Device discovery, connection, learn mode, CC→parameter mapping via midir
-▲ AI Tone Assistant           —  ✅ Multi-provider (Anthropic + OpenAI-compatible: OpenAI, OpenRouter, Ollama, llama-server, GLM, Kimi, etc.)
-▲ Convolution IR in Cab       —  ✅ Direct-form convolver (8192 sample max IR), WAV loading, mono downmix
-▲ Live Mode / Scenes          —  ✅ Scene CRUD with setlist management, next/prev navigation, persistence
-▲ Built-in Amp Presets        —  ✅ 300+ guitar amp presets + 61 bass amp presets across 16 genres
-▲ Bass Guitar Support         —  ✅ BassAmp plugin type with shifted EQ (100Hz/500Hz/4kHz), dedicated presets
-▲ Undo/Redo                   —  ✅ Signal chain undo/redo (50 steps)
-▲ Global Keyboard Shortcuts   —  ✅ Page nav (1-7), engine toggle (space), undo (Ctrl+Z), redo (Ctrl+Shift+Z), save (Ctrl+S)
-```
+---
 
-## Architecture
+## ✨ Features
+
+| Category | Features |
+|----------|----------|
+| **Amp Modeling** | Built-in amp & cabinet simulation with boost, drive, EQ (bass/mid/treble), and master volume |
+| **IR Loader** | Load custom impulse responses (WAV) into the Cab slot for realistic cabinet simulation |
+| **NAM Models** | Load [Neural Amp Modeler](https://github.com/sdatkinson/neural-amp-modeler) models for state-of-the-art neural amp emulation |
+| **Effects** | Delay and reverb with wet/dry mix and parameter control |
+| **AI Assistant** | Generate tones from text descriptions using Claude (Anthropic API) — "Give me a SRV-style Texas blues tone" |
+| **MIDI Control** | Map CC controllers to any parameter, with learn mode for easy assignment |
+| **Live Scenes** | Save and switch between full signal chains instantly for gigging and recording |
+| **Presets** | Organize tones into banks with tags, descriptions, and searchable metadata |
+| **Cross-Platform** | Native builds for Linux (AppImage/deb), macOS (universal .dmg), and Windows (.msi/.exe) |
+
+---
+
+## 🏗️ Architecture
 
 ```
 kicks/
-├── src-tauri/                # Tauri 2 desktop shell (Rust)
-│   ├── src/lib.rs            # App entry, AppState, 30 commands registered
-│   ├── src/main.rs           # Win subsystem shim
-│   ├── src/midi.rs           # MidiManager — midir port discovery + CC event channel
-│   ├── src/ai.rs             # Multi-provider AI (Anthropic + OpenAI-compatible)
-│   └── src/commands/         # Tauri IPC commands (10 modules)
-│       ├── engine.rs         #   Engine lifecycle + parameters
-│       ├── signal_chain.rs   #   Slot CRUD + enable/disable + move/reorder + undo/redo
-│       ├── presets.rs        #   Bank/preset CRUD with disk persistence
-│       ├── settings.rs       #   App configuration with disk persistence
-│       ├── ir.rs             #   IR file listing, picker dialog, WAV parsing
-│       ├── midi.rs           #   MIDI device discovery, config CRUD, learn mode, event poll
-│       ├── ai.rs             #   AI preset generation + apply to signal chain
-│       ├── amp_presets.rs    #   Built-in amp/bass preset list + apply
-│       └── scenes.rs         #   Scene CRUD, reorder, next/prev navigation
 ├── crates/
-│   ├── guitarix-rpc/         # JSON-RPC 2.0 client → Guitarix engine
-│   │   ├── client.rs         #   Full API coverage (banks, presets, MIDI, tuner, etc.)
-│   │   ├── connection.rs     #   Exponential backoff + auto-reconnect
-│   │   ├── helpers.rs        #   Batch operations (list_params, list_all_presets)
-│   │   ├── launcher.rs       #   Headless guitarix -N process manager
-│   │   ├── error.rs          #   Typed error enum
-│   │   └── types.rs          #   Response structs
-│   ├── kicks-core/           # Shared data models + persistence
-│   │   ├── signal_chain.rs   #   SignalChain, ChainSlot, PluginType (Amp/BassAmp)
-│   │   ├── amp_preset.rs     #   AmpPreset model + 400+ built-in guitar/bass presets
-│   │   ├── preset.rs         #   Preset, Bank, PresetCollection
-│   │   ├── scene.rs          #   SceneCollection, scene navigation
-│   │   ├── midi.rs           #   MidiMapping, MidiConfig
-│   │   ├── config.rs         #   KicksConfig, EngineMode, AiProvider
-│   │   └── persistence.rs    #   JSON save/load, atomic writes, XDG paths
-│   └── kicks-dsp/            # Native DSP engine (no external DSP deps)
-│       ├── engine.rs         #   AudioEngine trait + KicksEngine
-│       ├── plugins.rs        #   Boost, Amp (guitar/bass), Cab, Delay, Reverb + biquads + convolution IR
-│       ├── audio_io.rs       #   CPAL full-duplex I/O (default) + JACK (feature-gated), device enumeration
-│       ├── param.rs          #   Lock-free SPSC parameter channel for real-time safety
-│       └── convolution.rs    #   Direct-form convolver for IR loading
-└── frontend/                 # React 19 + TypeScript 6 + Vite 8 + Tailwind CSS 4
-    ├── src/
-    │   ├── App.tsx           # Shell with sidebar, toolbar, status bar, error boundary
-    │   ├── lib/tauri.ts      # Tauri invoke wrapper (dev fallbacks)
-    │   ├── types/tauri.ts    # TypeScript interfaces matching backend types
-    │   ├── stores/           # Zustand stores (engine, presets, settings, midi)
-    │   ├── components/
-    │   │   ├── SignalChain/  # PedalBoard, PedalSlot, ParamSlider
-    │   │   ├── AmpPresets/   # AmpPresetSelector with search + category filters
-    │   │   ├── ErrorBoundary.tsx
-    │   │   ├── Sidebar.tsx
-    │   │   ├── Toolbar.tsx
-    │   │   └── StatusBar.tsx
-    │   └── pages/            # 7 pages — SignalChain, Presets, IRBrowser,
-    │                         #   MidiConfig, LiveMode, AIAssistant, Settings
-    └── package.json
+│   ├── kicks-core/      # Domain models, config, persistence, presets
+│   ├── kicks-dsp/       # Real-time audio DSP engine (plugins, audio I/O, NAM, convolution)
+│   └── guitarix-rpc/    # Guitarix integration via RPC
+├── src-tauri/           # Tauri application shell (commands, state management, menus)
+├── frontend/            # React + Vite + Tailwind CSS + Zustand UI
+└── .github/workflows/   # CI/CD: clippy, tests, security audit, cross-platform releases
 ```
 
-## Data Flow
+---
 
-```
-User Input (UI)
-     │
-     ▼
-Tauri IPC Commands (src-tauri/src/commands/)
-     │
-     ├── Internal Mode ──► kicks-dsp (native DSP) ──► CPAL (ALSA/PipeWire/CoreAudio)
-     │                         │
-     │                    Lock-free SPSC param channel
-     │                         │
-     │                    Audio callback → engine.try_lock()
-     │
-     └── Guitarix Mode ──► guitarix-rpc ──► Guitarix Engine ──► JACK
-     
-Disk Persistence (~/.config/kicks/):
-     ├── config.json            — App settings (engine mode, CPAL, directories, AI key)
-     ├── presets.json           — All presets organized by bank
-     ├── signal_chain.json      — Auto-saved on every change
-     ├── midi_config.json       — MIDI device selection + CC mappings
-     └── scenes.json            — Live mode scenes with signal chain snapshots
-```
+## 🚀 Quick Start
 
+### Prerequisites
 
-## Requirements
+- **Rust** (latest stable) — [rustup.rs](https://rustup.rs)
+- **Node.js** (v20+) & **npm**
+- **Tauri CLI** — `cargo install tauri-cli --version "^2"`
+- **cargo-deny** (optional, for local security checks) — `cargo install cargo-deny --locked`
+- **System dependencies**
+  - Linux: `jackd`, `libjack-jackd2-dev`, `libwebkit2gtk-4.1-dev`
+  - macOS: Xcode Command Line Tools
+  - Windows: MSVC Build Tools
 
-- Rust 1.77+
-- Node.js 20+
-- ALSA or PipeWire (Linux) — or CoreAudio (macOS), WASAPI (Windows)
-- JACK Audio Connection Kit (`jackd`) — optional (for JACK backend feature)
-- Guitarix (optional — for companion mode, headless `guitarix -N -p 4040`)
-
-## Build & Run
+### Development
 
 ```bash
-# Install system dependencies (Arch Linux)
-sudo pacman -S jack2 base-devel libgtk-3 webkit2gtk-4.1
+# 1. Clone
+git clone https://github.com/synthalorian/kicks.git
+cd kicks
 
-# Install system dependencies (Ubuntu/Debian)
-sudo apt install libjack-jackd2-dev libasound2-dev \
-  libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
-
-# Install frontend deps
+# 2. Install frontend dependencies
 cd frontend && npm install && cd ..
 
-# Development mode — starts both Vite dev server + Tauri window
-cargo run
-
-# Run tests
-cargo test                          # All 54 tests
-cargo test -p kicks-dsp             # DSP tests (26) — plugins, biquads, delay, reverb, convolution, registry, param channel
-cargo test -p kicks-core            # Persistence + models (16) — scenes, atomic writes, round-trips
-cargo test -p guitarix-rpc          # RPC client tests (12) — connection, backoff, JSON-RPC, launcher
-
-# Production build
-cargo build --release
+# 3. Run the Tauri dev server
+cargo tauri dev
 ```
 
-### Frontend-only dev (hot-reload in browser)
+The app will open automatically. The frontend dev server runs on `http://localhost:5173`.
+
+### Building
 
 ```bash
-cd frontend && npm run dev
+# Frontend only
+cd frontend && npm run build
+
+# Full Tauri app (native binary + bundles)
+cargo tauri build
 ```
 
-Opens on `http://localhost:5173` with simulated backend responses.
+Built artifacts:
+- **Binary:** `src-tauri/target/release/app`
+- **Linux:** `src-tauri/target/release/bundle/appimage/*.AppImage`, `*.deb`
+- **macOS:** `src-tauri/target/release/bundle/dmg/*.dmg`
+- **Windows:** `src-tauri/target/release/bundle/msi/*.msi`, `*.exe`
 
-## Tests
+---
 
-| Crate | Tests | What's covered |
-|-------|-------|---------------|
-| kicks-dsp | 26 | Plugin processing (boost, amp, cab, delay, reverb), biquad filters, delay line, reverb, convolver (identity, known IR, mixed, empty, trim, normalize, metadata, reset), full chain + parameter mapping, lock-free param channel (send/receive, full-queue error) |
-| kicks-core | 16 | Persistence round-trips, atomic writes, JSON load/save, missing file defaults, scene CRUD/navigation/reorder |
-| guitarix-rpc | 12 | Connection management, backoff, JSON-RPC call/response, launcher lifecycle |
+## 🧪 Testing
 
-## Roadmap
+```bash
+# Rust unit tests
+cargo test --all-features
 
-### Phase 1 — Core MVP ✅
-- [x] Native DSP: Boost, Amp, Cab, Delay, Reverb plugins
-- [x] Tauri IPC: engine, signal chain, presets, settings, IR commands
-- [x] Frontend stores + state management (zustand)
-- [x] Signal Chain page: drag-and-drop pedalboard + reorder
-- [x] Presets page: bank browser with CRUD + disk persistence
-- [x] MIDI, Live, AI, IR pages with working UI
-- [x] Guitarix RPC: complete JSON-RPC 2.0 client
-- [x] Disk persistence: presets, config, signal chain, scenes, MIDI
+# Clippy (zero warnings policy)
+cargo clippy --all-targets --all-features -- -D warnings
 
-### Phase 2 — Deepen Integration ✅
-- [x] MIDI device integration — wire MIDI CC to parameter automation via midir
-- [x] AI Tone Assistant — hook up to multi-provider (Anthropic + OpenAI-compatible) API
-- [x] Convolution IR loader for Cab plugin (direct-form convolver, WAV loading, mono downmix)
-- [x] Live mode scene management — CRUD, persistence, prev/next navigation
-- [x] Built-in amp presets — 300+ guitar presets + 61 bass presets
-- [x] Bass guitar support — BassAmp plugin type with shifted EQ + dedicated presets
-- [x] AI multi-provider refactor — OpenAI-compatible format (OpenAI, OpenRouter, Ollama, llama-server, GLM, Kimi)
-- [x] Audio flow visualization in signal chain page
+# Frontend unit tests (Vitest)
+cd frontend && npm run test
 
-### Phase 3 — Polish & Ship ✅
-- [x] Signal chain undo/redo (50 steps)
-- [x] Global keyboard shortcuts (page nav, engine toggle, undo/redo, save)
-- [x] Tauri bundling config (AppImage, .deb with JACK + PipeWire deps)
-- [x] Error boundary wrapper for page-level crash recovery
-- [x] CI: Rust + frontend build/test on push/PR
-- [x] Real-time audio I/O via PipeWire/ALSA (CPAL)
-- [x] Configurable sample rate / buffer size in settings
-- [x] Lock-free parameter changes for audio thread safety
+# Frontend E2E tests (Playwright)
+cd frontend && npx playwright install  # one-time browser install
+cd frontend && npm run test:e2e        # headless
+cd frontend && npm run test:e2e:ui     # interactive UI mode
 
-### Phase 4 — Ship 🚧
-- [x] Flatpak / Snap packaging
-- [x] User documentation — [`docs/`](docs/index.md) covers all features
-- [ ] Build-time NAM inference support
+# Security audit
+cargo audit
+cargo deny check
+```
 
-## Session Handoff
+---
 
-This section is for continuing work in a new Claude Code session.
+## 📦 CI / CD
 
-### Session 2 (May 24, 2026)
+The [`.github/workflows/ci.yml`](.github/workflows/ci.yml) pipeline runs on every push and PR:
 
-Completed **CPAL audio I/O** — replacing the JACK-only stub with a real cross-platform audio backend.
+| Job | What it does |
+|-----|-------------|
+| **Quality** | `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --all-features` |
+| **Frontend** | `npm run lint`, `npm run test`, `npm run test:e2e`, `npm run build` |
+| **Security** | `cargo audit` (vulnerability scanning), `cargo deny check` (license/duplicate scanning) |
+| **Release** | Cross-platform matrix build: Linux, macOS (universal), Windows. Uploads artifacts to GitHub Releases. |
 
-*Details preserved from Session 1 handoff.*
+### Automated Dependency Updates
 
-### Session 3 (May 24, 2026)
+Dependabot is configured to open weekly grouped PRs for:
+- **Cargo** crates (`.github/dependabot.yml`)
+- **npm** packages (`frontend/`)
 
-Completed **lock-free parameters + audio flow visualization + settings page polish**:
+---
 
-#### Lock-free Parameter Channel
-- `crates/kicks-dsp/src/param.rs` — New module: SPSC ring-buffer-based parameter channel (`ParamSender`/`ParamConsumer`)
-  - `param_channel()` creates a bounded channel pair (1024 entries)
-  - `send()` is lock-free (ringbuf push), safe to call from any thread
-  - `ParamSender` implements `Send + Sync` for use from Tauri command handlers
-  - `ParamConsumer` is drained in the audio callback before each `process_all`
-- `crates/kicks-dsp/src/lib.rs` — Exports `param` module (behind `cpal-backend` feature), `ParamSender`
-- `crates/kicks-dsp/src/audio_io.rs` — `CpalAudioIO::start()` accepts `ParamConsumer`, drains it in output callback
-- `crates/kicks-dsp/src/plugins.rs` — Added `set_parameter_value()` for main-thread-only HashMap sync while the real plugin update goes through the SPSC queue
-- `src-tauri/src/lib.rs` — `AppState` holds `param_tx: Mutex<Option<ParamSender>>`
-- `src-tauri/src/commands/engine.rs` — `start_engine` creates param channel, stores tx in AppState, passes rx to CPAL; `set_parameter` now pushes to SPSC queue instead of directly locking engine; `get_audio_levels` command added
-- `src-tauri/src/commands/ir.rs`, `midi.rs`, `scenes.rs`, `amp_presets.rs` — All engine parameter changes use `param_tx` via `set_parameter_value` for immediate HashMap consistency
-- Frontend: `tauri.ts` — Added `getAudioLevels()` API, simulated levels with sine jitter
+## 🎛️ DSP Engine
 
-#### Real-time Audio Flow Visualization
-- `crates/kicks-dsp/src/plugins.rs` — `PluginRegistry` tracks per-plugin `levels: Vec<f32>` updated every `process_all` cycle; `audio_levels()` returns them
-- `frontend/src/stores/engineStore.ts` — Added `levels` state, `levelsError`, `pollLevels()` action (calls `getAudioLevels` at 50ms interval)
-- `frontend/src/components/SignalChain/AudioFlow.tsx` — Full rewrite:
-  - Replaced static `estimatedLevel()` guessing with real RMS bars from store polling
-  - Gradient VU meter per slot (green → amber → red at standard thresholds)
-  - dBFS label + percentage display, 0 dBFS clipping tickmark
-  - Color zone legend (Safe / Warm / Hot)
-  - Output level summary in header when engine runs
+The real-time audio pipeline is built on **JACK** and **CPAL** with a plugin-based architecture:
 
-#### Settings Page — Device Dropdown + Auto-Restart
-- `crates/kicks-dsp/src/audio_io.rs` — Added `DeviceInfo` struct and `list_audio_devices()` using CPAL `Host::devices()` enumeration, categorized as input/output
-- `src-tauri/src/commands/settings.rs` — Added `list_audio_devices` Tauri command; `save_settings` now detects audio config changes and auto-restarts the CPAL stream with new sample rate / buffer size / device (engine state preserved)
-- `frontend/src/types/tauri.ts` — Added `AudioDeviceInfo` interface
-- `frontend/src/lib/tauri.ts` — Added `listAudioDevices()` API + simulated device list
-- `frontend/src/pages/Settings.tsx` — Device Name text input replaced with populated `<select>` dropdown from CPAL enumeration; fetches devices on mount
+| Plugin | Description |
+|--------|-------------|
+| `Input` | Audio input with pass-through level control |
+| `Boost` | Clean gain boost stage |
+| `Amp` | Tube amp simulation with preamp gain, master volume, 3-band EQ, drive |
+| `Cab` | Cabinet simulation with IR convolution, low/high cut filters |
+| `BassAmp` | Dedicated bass amp with extended low-end response |
+| `Delay` | Digital delay with time, feedback, and mix controls |
+| `Reverb` | Room reverb with size, damping, and mix controls |
+| `Output` | Master volume and output level |
 
-### Session 4 (May 24, 2026)
+**Audio I/O:** JACK (Linux, pro-audio) and CPAL (cross-platform, WASAPI/CoreAudio/PipeWire)
 
-Completed **Flatpak + Snap packaging**:
+---
 
-#### Flatpak
-- `flatpak/com.kicks.guitar-workstation.yml` — Full Flatpak manifest using Freedesktop 24.08 SDK + Platform
-  - SDK extensions: `rust-stable` for Rust build, `node22` for frontend build
-  - WebKitGTK 4.1 for Tauri 2 webview
-  - `finish-args`: PulseAudio, Wayland/X11, DRI, network, home filesystem
-  - Build steps: npm ci → npm run build → cargo build --release → install binary + icons + desktop file + AppStream metainfo
-  - Build: `flatpak-builder --force-clean build/flatpak flatpak/com.kicks.guitar-workstation.yml`
-  - Export: `flatpak build-bundle build/flatpak-repo Kicks.flatpak com.kicks.guitar-workstation`
+## 🧠 AI Tone Assistant
 
-#### Snap
-- `snap/snapcraft.yaml` — Full Snapcraft manifest using core24 base
-  - Two-part build: `frontend` (nil plugin, npm ci/build) → `backend` (rust plugin, cargo build)
-  - Stage-packages: ALSA, JACK, PipeWire, WebKitGTK, GTK3, AppIndicator
-  - Plugs: desktop, wayland, x11, pulseaudio, opengl, home, network
-  - Confinement: strict
-  - Build: `snapcraft --output dist/kicks.snap`
+Kicks integrates with the **Anthropic Claude** API to generate complete signal chains from natural language descriptions:
 
-#### Build Scripts
-- `scripts/build-flatpak.sh` — Flatpak builder automation (runtime auto-install, debug/release, bundle export)
-- `scripts/build-snap.sh` — Snap builder (destructive/LXD modes)
-- `scripts/build-all.sh` — Full release pipeline: cargo check → test → npm build → cargo build --release → Tauri bundle → Flatpak → Snap
+1. Enter a tone description in the **AI Assistant** panel
+2. The backend sends it to Claude with a structured prompt
+3. Claude returns parameter values for each slot in the signal chain
+4. Apply the generated preset with one click
 
-### Session 5 (May 24, 2026) — User Documentation
+Configure your API key in **Settings → AI Provider**.
 
-Completed **user documentation** covering all 7 pages:
+---
 
-- `docs/index.md` — Overview, feature table, plugin chain reference, quick start
-- `docs/signal-chain.md` — PedalBoard drag-drop, AudioFlow VU meters, Amp vs BassAmp
-- `docs/presets.md` — Save/load, bank management, 361 built-in presets across 15 genres
-- `docs/ir-browser.md` — IR scanning, convolution loading, WAV format table
-- `docs/midi.md` — Device discovery, MIDI Learn, CC mapping, troubleshooting
-- `docs/live-mode.md` — Scene CRUD, performance flow, next/prev navigation
-- `docs/ai-assistant.md` — Provider setup (Anthropic + OpenAI-compatible), prompt examples
-- `docs/settings.md` — Audio config, buffer size latency table, hot-reload
-- `docs/keyboard-shortcuts.md` — All shortcuts (1-7 nav, Space, Ctrl+Z, Ctrl+S)
-- `docs/troubleshooting.md` — Audio/MIDI/IR/AI/Flatpak sandbox issues
+## 🤝 Contributing
 
-### Files Most Likely Needed Next
+We welcome contributions! Please:
 
-1. **Build-time NAM inference support** — `crates/kicks-dsp` needs a NAM (.nam file) inference engine. The NAM format from Neural Amp Modeler uses a lightweight feedforward neural net (LSTM or WaveNet-style). Options:
-   - Bundle the official `nam` Rust crate (if available) or reimplement the inference kernel
-   - Add `nam` feature to kicks-dsp, a `NamPlugin` that reads .nam files and processes audio
-   - Integrate into the existing signal chain as an additional plugin type (like Amp but ML-based)
-   - Follow the Cab/Convolver pattern: load NAM file → process samples in real time
-   - Check: `crates.io` for `nam` crate, or the NAM project's official inference code
+1. **Open an issue** first for significant changes or new features
+2. **Fork & branch** — `git checkout -b feature/your-feature-name`
+3. **Write tests** for new DSP plugins, UI components, and Tauri commands
+4. **Run the full validation suite** before submitting:
+   ```bash
+   cargo clippy --all-targets --all-features -- -D warnings
+   cargo test --all-features
+   cd frontend && npm run lint && npm run test && npm run test:e2e
+   ```
+5. **Submit a PR** with a clear description and linked issue
 
-### Current State
+### Code Style
 
-- **54 tests pass**, `cargo check` and `npx tsc --noEmit` clean
-- Build: `cargo build --release` produces the Tauri binary
-- Dev mode: `cargo run` (or `cd frontend && npm run dev` for browser-only with simulated backend)
-- All persistent state lives in `~/.config/kicks/`
-- Packaging: Flatpak (`flatpak/com.kicks.guitar-workstation.yml`), Snap (`snap/snapcraft.yaml`), Tauri bundles (AppImage, .deb)
-- Docs: 10 files in `docs/` covering all features
+- **Rust:** `cargo fmt` + `cargo clippy -- -D warnings`
+- **TypeScript:** ESLint + Prettier (via `npm run lint`)
+- **Commits:** Clear, imperative mood (`Add delay plugin`, not `Added delay plugin`)
 
-## License
+---
 
-GNU General Public License v3.0 or later.
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- [Tauri](https://tauri.app/) — Secure, lightweight desktop apps with web tech
+- [Neural Amp Modeler](https://github.com/sdatkinson/neural-amp-modeler) — Open-source neural amp modeling
+- [Guitarix](https://guitarix.org/) — Guitar amp simulator and effects
+- [JACK Audio Connection Kit](https://jackaudio.org/) — Professional low-latency audio
+- [Tailwind CSS](https://tailwindcss.com/) — Utility-first CSS framework
+
+---
+
+## 🚀 Releasing
+
+To create a new release and trigger the cross-platform build pipeline:
+
+```bash
+# Create an annotated tag
+git tag -a v0.2.0 -m "Kicks v0.2.0"
+
+# Push the tag to GitHub
+git push origin v0.2.0
+```
+
+The CI `release` job will automatically build and upload `.AppImage`, `.deb`, `.dmg`, `.msi`, and `.exe` bundles to the GitHub Release page.
+
+---
+
+**Built with ❤️ by synthalorian and contributors.**

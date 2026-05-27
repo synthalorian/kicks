@@ -63,6 +63,7 @@ impl Default for AudioConfig {
 /// Audio flow: Input callback → ring buffer → Output callback → KicksEngine → speakers
 ///
 /// Requires CPAL 0.17+ (Stream is Send+Sync across all platforms).
+#[derive(Default)]
 pub struct CpalAudioIO {
     #[cfg(feature = "cpal-backend")]
     _input_stream: Option<cpal::Stream>,
@@ -74,14 +75,7 @@ pub struct CpalAudioIO {
 
 impl CpalAudioIO {
     pub fn new() -> Self {
-        Self {
-            #[cfg(feature = "cpal-backend")]
-            _input_stream: None,
-            #[cfg(feature = "cpal-backend")]
-            _output_stream: None,
-            config: AudioConfig::default(),
-            active: false,
-        }
+        Self::default()
     }
 
     /// Start full-duplex audio I/O with the given engine and config.
@@ -311,6 +305,11 @@ impl JackAudioIO {
         }
     }
 
+    #[must_use]
+    pub fn with_config(config: JackConfig) -> Self {
+        Self::new(config)
+    }
+
     /// Open JACK client and register ports.
     pub fn open(&mut self) -> Result<()> {
         #[cfg(feature = "jack-backend")]
@@ -320,8 +319,8 @@ impl JackAudioIO {
                 jack::ClientOptions::NO_START_SERVER,
             )?;
 
-            let input = client.register_port("input", jack::AudioIn::default())?;
-            let output = client.register_port("output", jack::AudioOut::default())?;
+            let input = client.register_port("input", jack::AudioIn)?;
+            let output = client.register_port("output", jack::AudioOut)?;
 
             self.client = Some(client);
             self.input_port = Some(input);

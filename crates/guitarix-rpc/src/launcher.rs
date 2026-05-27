@@ -47,7 +47,7 @@ impl GuitarixProcess {
             // Try graceful shutdown
             let _ = child.kill();
             // Wait a bit for it to die
-            let _ = std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(std::time::Duration::from_millis(500));
             let _ = child.wait();
             tracing::info!("Guitarix process stopped");
         }

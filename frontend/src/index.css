@@ -1,17 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --accent: #e87933;
-  --accent-bg: #2d1b0e;
-  --accent-border: #e87933;
-  --bg: #0f0f14;
-  --bg-surface: #1a1a24;
-  --bg-elevated: #24243a;
-  --text: #c8c8d0;
-  --text-h: #f0f0f5;
-  --text-muted: #8888a0;
-  --border: #2a2a3e;
-  --surface-hover: #2e2e44;
+  --accent: #00f0ff;
+  --accent-bg: rgba(0, 240, 255, 0.08);
+  --accent-border: rgba(0, 240, 255, 0.35);
+  --bg: #07070a;
+  --bg-surface: #0e0e14;
+  --bg-elevated: #16161f;
+  --text: #b8b8c8;
+  --text-h: #f0f0f8;
+  --text-muted: #606070;
+  --border: #1e1e2e;
+  --surface-hover: #222230;
+  --danger: #ff2a6d;
+  --danger-bg: rgba(255, 42, 109, 0.08);
+  --success: #05ffa1;
+  --success-bg: rgba(5, 255, 161, 0.08);
+  --warning: #ffcc00;
+  --warning-bg: rgba(255, 204, 0, 0.08);
+  --glow: #00f0ff;
+  --accent2: #ff2a6d;
 }
 
 html, body, #root {
@@ -20,9 +28,172 @@ html, body, #root {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Rajdhani', system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* ─── Cyberpunk Typography ─── */
+.font-display {
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 0.08em;
+}
+
+.font-mono-data {
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Neon glow effects ─── */
+.neon-text {
+  text-shadow:
+    0 0 4px var(--glow),
+    0 0 8px var(--glow),
+    0 0 24px var(--glow);
+}
+
+.neon-text-pink {
+  text-shadow:
+    0 0 4px var(--accent2),
+    0 0 8px var(--accent2),
+    0 0 24px var(--accent2);
+}
+
+.neon-border {
+  box-shadow:
+    0 0 4px var(--glow),
+    inset 0 0 4px var(--glow);
+}
+
+.neon-button {
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.neon-button:hover {
+  box-shadow:
+    0 0 16px rgba(0, 240, 255, 0.45),
+    0 0 32px rgba(0, 240, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* ─── Range slider ─── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--bg);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--glow);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--glow);
+  cursor: pointer;
+  border: 2px solid var(--bg);
+}
+
+/* ─── Scrollbars ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* ─── Scanlines ─── */
+.scanlines::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 240, 255, 0.02) 2px,
+    rgba(0, 240, 255, 0.02) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Grid background ─── */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ─── Canvas visualizer ─── */
+canvas.visualizer {
+  filter: drop-shadow(0 0 8px var(--glow));
+}
+
+/* ─── Inputs ─── */
+input, select, textarea {
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-weight: 500;
+}
+
+/* ─── Animations ─── */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px var(--glow); }
+  50% { box-shadow: 0 0 12px var(--glow), 0 0 24px var(--glow); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  41.99% { opacity: 1; }
+  42% { opacity: 0.4; }
+  43% { opacity: 1; }
+  45.99% { opacity: 1; }
+  46% { opacity: 0.4; }
+  46.5% { opacity: 1; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-flicker {
+  animation: flicker 3s linear infinite;
+}
+
+/* ─── Button reset ─── */
+button {
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-weight: 600;
 }

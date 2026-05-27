@@ -8,9 +8,14 @@ function pluginMeta(pluginType: string) {
     Output: { label: 'OUT', color: 'bg-zinc-600', border: 'border-zinc-500' },
     Boost: { label: 'BST', color: 'bg-amber-700', border: 'border-amber-500' },
     Amp: { label: 'AMP', color: 'bg-red-700', border: 'border-red-500' },
+    BassAmp: { label: 'BASS', color: 'bg-indigo-700', border: 'border-indigo-500' },
     Cab: { label: 'CAB', color: 'bg-stone-600', border: 'border-stone-400' },
+    Nam: { label: 'NAM', color: 'bg-violet-700', border: 'border-violet-500' },
     Delay: { label: 'DLY', color: 'bg-cyan-700', border: 'border-cyan-500' },
     Reverb: { label: 'REV', color: 'bg-sky-700', border: 'border-sky-500' },
+    Tuner: { label: 'TUN', color: 'bg-emerald-700', border: 'border-emerald-500' },
+    Metronome: { label: 'MET', color: 'bg-orange-700', border: 'border-orange-500' },
+    Looper: { label: 'LOP', color: 'bg-pink-700', border: 'border-pink-500' },
   };
   return map[pluginType] ?? {
     label: pluginType.slice(0, 3).toUpperCase(),
@@ -23,10 +28,16 @@ function pluginMeta(pluginType: string) {
 function keyParams(pluginType: string): string[] {
   switch (pluginType) {
     case 'Boost': return ['gain'];
-    case 'Amp': return ['gain', 'drive', 'master'];
+    case 'Amp':
+    case 'BassAmp':
+      return ['gain', 'drive', 'master'];
     case 'Cab': return ['level', 'high_cut'];
+    case 'Nam': return ['level'];
     case 'Delay': return ['time', 'mix'];
     case 'Reverb': return ['size', 'mix'];
+    case 'Tuner': return ['sensitivity'];
+    case 'Metronome': return ['bpm'];
+    case 'Looper': return ['mix'];
     default: return [];
   }
 }

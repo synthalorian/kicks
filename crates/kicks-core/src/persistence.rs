@@ -290,7 +290,7 @@ mod tests {
         let path = dir.join("presets.json");
         std::fs::create_dir_all(&dir).unwrap();
 
-        let mut collection = PresetCollection { banks: vec![] };
+        let mut collection = PresetCollection::default();
         collection.banks.push(Bank {
             name: "Test Bank".into(),
             presets: vec![Preset {
@@ -318,8 +318,10 @@ mod tests {
         let path = dir.join("config.json");
         std::fs::create_dir_all(&dir).unwrap();
 
-        let mut config = KicksConfig::default();
-        config.jack_client_name = "kicks-test".into();
+        let config = KicksConfig {
+            jack_client_name: "kicks-test".into(),
+            ..KicksConfig::default()
+        };
 
         save_json(&path, &config).unwrap();
         let loaded: KicksConfig = load_json(&path).unwrap().unwrap();
@@ -334,8 +336,10 @@ mod tests {
         let path = dir.join("config.json");
         std::fs::create_dir_all(&dir).unwrap();
 
-        let mut config = KicksConfig::default();
-        config.jack_client_name = "first".into();
+        let mut config = KicksConfig {
+            jack_client_name: "first".into(),
+            ..KicksConfig::default()
+        };
         save_json(&path, &config).unwrap();
 
         config.jack_client_name = "second".into();

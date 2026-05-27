@@ -96,7 +96,8 @@ pub fn save_settings(
         config.active_engine = match settings.engine_mode.as_str() {
             "Internal" => EngineMode::Internal,
             "Guitarix" => EngineMode::Guitarix,
-            "Auto" | _ => EngineMode::Auto,
+            "Auto" => EngineMode::Auto,
+            _ => EngineMode::Auto,
         };
 
         config.ai_provider = match settings.ai_provider.as_str() {

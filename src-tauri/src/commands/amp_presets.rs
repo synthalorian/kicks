@@ -40,7 +40,7 @@ impl From<&AmpPreset> for AmpPresetInfo {
 pub fn list_amp_presets() -> Vec<AmpPresetInfo> {
     built_in_amp_presets()
         .iter()
-        .map(|p| AmpPresetInfo::from(p))
+        .map(AmpPresetInfo::from)
         .collect()
 }
 

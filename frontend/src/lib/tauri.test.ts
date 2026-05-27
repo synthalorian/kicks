@@ -1,0 +1,70 @@
+import { describe, it, expect } from 'vitest';
+
+// We test the simulate fallback by invoking commands directly.
+// Because `invoke` is module-private, we exercise it via the exported helpers.
+import {
+  engineStatus,
+  getVersion,
+  getSignalChain,
+  listPresets,
+  getSettings,
+  listAudioDevices,
+  listScenes,
+  listAmpPresets,
+} from './tauri';
+
+describe('tauri API simulation (outside Tauri)', () => {
+  it('getVersion returns dev version', async () => {
+    const v = await getVersion();
+    expect(v).toBe('0.1.0 (dev)');
+  });
+
+  it('engineStatus returns simulated status', async () => {
+    const status = await engineStatus();
+    expect(status.running).toBe(true);
+    expect(status.sample_rate).toBe(48000);
+    expect(status.buffer_size).toBe(256);
+  });
+
+  it('getSignalChain returns default chain snapshot', async () => {
+    const chain = await getSignalChain();
+    expect(chain.slots).toHaveLength(8);
+    expect(chain.slots[0].plugin_type).toBe('Input');
+    expect(chain.slots[7].plugin_type).toBe('Output');
+  });
+
+  it('listPresets returns empty array', async () => {
+    const presets = await listPresets();
+    expect(presets).toEqual([]);
+  });
+
+  it('getSettings returns simulated defaults', async () => {
+    const settings = await getSettings();
+    expect(settings.guitarix_host).toBe('127.0.0.1');
+    expect(settings.engine_mode).toBe('Auto');
+    expect(settings.ai_provider).toBe('Anthropic');
+  });
+
+  it('listAudioDevices returns simulated devices', async () => {
+    const devices = await listAudioDevices();
+    expect(devices.length).toBeGreaterThan(0);
+    expect(devices[0]).toHaveProperty('name');
+    expect(devices[0]).toHaveProperty('is_input');
+    expect(devices[0]).toHaveProperty('is_output');
+  });
+
+  it('listScenes returns simulated scenes', async () => {
+    const scenes = await listScenes();
+    expect(scenes).toHaveLength(3);
+    expect(scenes[0].name).toBe('Clean');
+    expect(scenes[0].is_active).toBe(true);
+  });
+
+  it('listAmpPresets returns built-in presets', async () => {
+    const presets = await listAmpPresets();
+    expect(presets.length).toBeGreaterThan(0);
+    expect(presets[0]).toHaveProperty('name');
+    expect(presets[0]).toHaveProperty('gain');
+    expect(presets[0]).toHaveProperty('tags');
+  });
+});
