@@ -168,11 +168,13 @@ impl Compressor {
         self.ratio = ratio.clamp(1.0, 20.0);
     }
 
+    #[allow(dead_code)]
     fn set_attack(&mut self, ms: f32) {
         self.attack = ms.clamp(0.1, 500.0);
         self.update_coeffs();
     }
 
+    #[allow(dead_code)]
     fn set_release(&mut self, ms: f32) {
         self.release = ms.clamp(1.0, 2000.0);
         self.update_coeffs();

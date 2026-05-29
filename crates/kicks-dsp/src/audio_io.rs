@@ -157,10 +157,10 @@ impl CpalAudioIO {
                 .build_output_stream::<f32, _, _>(
                     &stream_config,
                     move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                        for (i, s) in data.iter_mut().enumerate() {
-                            let sample = consumer.try_pop().unwrap_or(0.0);
-                            input_buf[i] = sample;
-                            *s = sample;
+                        // Drain ring buffer into input_buf; leave output zeroed until
+                        // the engine overwrites it with processed audio.
+                        for (_i, input_slot) in input_buf.iter_mut().enumerate().take(data.len()) {
+                            *input_slot = consumer.try_pop().unwrap_or(0.0);
                         }
 
                         if let Ok(mut eng) = eng.try_lock() {
@@ -174,6 +174,8 @@ impl CpalAudioIO {
 
                             let _ = eng.process(&input_buf[..data.len()], data);
                         }
+                        // If try_lock fails, output stays zero (silence) rather than
+                        // leaking dry input — safer for live guitar processing.
                     },
                     |err| tracing::error!("CPAL output stream error: {}", err),
                     None,
