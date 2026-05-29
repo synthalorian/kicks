@@ -1070,6 +1070,9 @@ pub struct PluginRegistry {
     /// We use double-buffering: buf_a and buf_b are swapped each plugin iteration.
     buf_a: Vec<f32>,
     buf_b: Vec<f32>,
+    /// Whether each plugin is enabled (true) or bypassed (false).
+    /// Length matches the number of plugins.
+    enabled: Vec<bool>,
 }
 
 impl Default for PluginRegistry {
@@ -1086,12 +1089,14 @@ impl PluginRegistry {
             levels: Vec::new(),
             buf_a: Vec::new(),
             buf_b: Vec::new(),
+            enabled: Vec::new(),
         }
     }
 
     pub fn add_plugin(&mut self, plugin: Box<dyn Plugin>) {
         self.plugins.push(plugin);
         self.levels.push(0.0);
+        self.enabled.push(true);
     }
 
     /// Remove all plugins.
@@ -1099,6 +1104,7 @@ impl PluginRegistry {
         self.plugins.clear();
         self.parameters.clear();
         self.levels.clear();
+        self.enabled.clear();
     }
 
     /// Number of plugins in the chain.
@@ -1157,12 +1163,23 @@ impl PluginRegistry {
         let mut read_from_a = true;
 
         for (i, plugin) in self.plugins.iter_mut().enumerate() {
-            if read_from_a {
-                plugin.process(&self.buf_a[..n], &mut self.buf_b[..n])?;
-                self.levels[i] = compute_rms(&self.buf_b[..n]);
+            if self.enabled.get(i).copied().unwrap_or(true) {
+                // Plugin is enabled — process normally
+                if read_from_a {
+                    plugin.process(&self.buf_a[..n], &mut self.buf_b[..n])?;
+                    self.levels[i] = compute_rms(&self.buf_b[..n]);
+                } else {
+                    plugin.process(&self.buf_b[..n], &mut self.buf_a[..n])?;
+                    self.levels[i] = compute_rms(&self.buf_a[..n]);
+                }
             } else {
-                plugin.process(&self.buf_b[..n], &mut self.buf_a[..n])?;
-                self.levels[i] = compute_rms(&self.buf_a[..n]);
+                // Plugin is bypassed — copy input to output unchanged
+                if read_from_a {
+                    self.buf_b[..n].copy_from_slice(&self.buf_a[..n]);
+                } else {
+                    self.buf_a[..n].copy_from_slice(&self.buf_b[..n]);
+                }
+                self.levels[i] = 0.0;
             }
             read_from_a = !read_from_a;
         }
@@ -1185,6 +1202,34 @@ impl PluginRegistry {
     /// real-time VU-meter visualisation.
     pub fn audio_levels(&self) -> Vec<f32> {
         self.levels.clone()
+    }
+
+    /// Set a parameter on a specific plugin by name.
+    ///
+    /// Returns `true` if the plugin was found and the parameter set.
+    pub fn set_parameter_on_plugin(&mut self, plugin_name: &str, id: &str, value: f32) -> bool {
+        self.parameters.insert(format!("{}.{}", plugin_name, id), value);
+        for plugin in &mut self.plugins {
+            if plugin.name() == plugin_name && plugin.get_parameter(id).is_some() {
+                plugin.set_parameter(id, value);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Enable or disable a plugin by name.
+    ///
+    /// Returns `true` if the plugin was found.
+    pub fn set_plugin_enabled(&mut self, plugin_name: &str, enabled: bool) -> bool {
+        for plugin in &mut self.plugins {
+            if plugin.name() == plugin_name {
+                // Store enabled state in the parameter override map
+                self.parameters.insert(format!("{}.__enabled", plugin_name), if enabled { 1.0 } else { 0.0 });
+                return true;
+            }
+        }
+        false
     }
 
     pub fn get_parameter(&self, id: &str) -> Option<f32> {

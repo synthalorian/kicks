@@ -43,6 +43,16 @@ impl KicksEngine {
         }
     }
 
+    /// Set a parameter on a specific plugin by name.
+    pub fn set_parameter_on_plugin(&mut self, plugin_name: &str, id: &str, value: f32) -> bool {
+        self.plugin_registry.set_parameter_on_plugin(plugin_name, id, value)
+    }
+
+    /// Enable or disable a plugin by name.
+    pub fn set_plugin_enabled(&mut self, plugin_name: &str, enabled: bool) -> bool {
+        self.plugin_registry.set_plugin_enabled(plugin_name, enabled)
+    }
+
     /// Update only the parameter value cache (HashMap) without iterating plugins.
     /// Used by the main thread for immediate `get_parameter` consistency.
     /// The audio callback applies the full plugin update via the SPSC queue drain.
@@ -114,6 +124,12 @@ impl KicksEngine {
     /// Clear the looper buffer.
     pub fn looper_clear(&mut self) -> bool {
         self.plugin_registry.looper_clear()
+    }
+
+    /// Build a default guitar signal chain.
+    pub fn build_default_chain(&mut self) {
+        self.plugin_registry.build_default_chain();
+        self.plugin_registry.init_all(self.sample_rate).ok();
     }
 
     /// Build a bass-oriented signal chain.
