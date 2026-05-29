@@ -4,28 +4,30 @@
 // Provides Boost, Amp, Cab IR, Delay, Reverb, Tuner, Metronome, Looper
 // and BassAmp processing stages with CPAL (default) or JACK audio I/O.
 
-pub mod convolution;
-pub mod engine;
-pub mod nam;
-pub mod plugins;
 pub mod audio_io;
 pub mod bass_amp;
-pub mod tuner;
-pub mod metronome;
-pub mod looper;
+pub mod convolution;
+pub mod engine;
 #[cfg(feature = "fft-convolution")]
 pub mod fft_convolution;
+pub mod looper;
+pub mod metronome;
+pub mod nam;
 #[cfg(feature = "cpal-backend")]
 pub mod param;
+pub mod plugins;
+pub mod tuner;
 
-pub use audio_io::{AudioConfig, CpalAudioIO, DeviceInfo, JackAudioIO, JackConfig, list_audio_devices};
+pub use audio_io::{
+    list_audio_devices, AudioConfig, CpalAudioIO, DeviceInfo, JackAudioIO, JackConfig,
+};
+pub use bass_amp::BassAmp;
 pub use convolution::Convolver;
 pub use engine::{AudioEngine, KicksEngine};
-pub use nam::{NamModelInfo, NeuralModel};
-pub use plugins::{Cab, compute_rms, IrInfo, Nam, Plugin, PluginRegistry};
-pub use bass_amp::BassAmp;
-pub use tuner::Tuner;
-pub use metronome::Metronome;
-pub use looper::Looper;
 #[cfg(feature = "fft-convolution")]
 pub use fft_convolution::FftConvolver;
+pub use looper::Looper;
+pub use metronome::Metronome;
+pub use nam::{NamModelInfo, NeuralModel};
+pub use plugins::{compute_rms, Cab, Input, IrInfo, Nam, Output, Plugin, PluginRegistry};
+pub use tuner::Tuner;

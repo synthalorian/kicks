@@ -139,7 +139,15 @@ function MetronomePanel() {
   }, [isPlaying, start, stop]);
 
   useEffect(() => {
-    if (isPlaying) start();
+    if (!isPlaying) return;
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    const interval = (60 / bpm) * 1000;
+    let currentBeat = 0;
+    intervalRef.current = setInterval(() => {
+      currentBeat = (currentBeat + 1) % 4;
+      setBeat(currentBeat);
+    }, interval);
+    updateBackend(bpm, true);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [bpm]); // eslint-disable-line react-hooks/exhaustive-deps
 

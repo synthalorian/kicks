@@ -124,13 +124,10 @@ impl SceneCollection {
         if self.scenes.is_empty() {
             return None;
         }
-        let prev = self.active_scene.map(|i| {
-            if i == 0 {
-                self.scenes.len() - 1
-            } else {
-                i - 1
-            }
-        }).unwrap_or(0);
+        let prev = self
+            .active_scene
+            .map(|i| if i == 0 { self.scenes.len() - 1 } else { i - 1 })
+            .unwrap_or(0);
         self.active_scene = Some(prev);
         Some(prev)
     }

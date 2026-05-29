@@ -18,7 +18,11 @@ pub fn get_metronome_state(state: State<'_, AppState>) -> Result<MetronomeState,
     if let Some(ref eng) = *engine_guard {
         let eng_inner = eng.lock().map_err(|e| e.to_string())?;
         if let Some((bpm, beats, running)) = eng_inner.metronome_state() {
-            Ok(MetronomeState { bpm, beats_per_bar: beats, running })
+            Ok(MetronomeState {
+                bpm,
+                beats_per_bar: beats,
+                running,
+            })
         } else {
             Ok(MetronomeState {
                 bpm: 120.0,

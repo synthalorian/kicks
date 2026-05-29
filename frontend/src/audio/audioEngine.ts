@@ -211,6 +211,7 @@ class AudioEngine {
 
     // Amp: waveshaper + 3-band EQ + master
     this.ampShaper = c.createWaveShaper();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.ampShaper.curve = this.makeDistortionCurve(0) as any;
     this.ampShaper.oversample = '4x';
 
@@ -316,6 +317,7 @@ class AudioEngine {
     const ampEnabled = this.slotEnabled.get('amp') ?? true;
     if (this.ampShaper) {
       const drive = ampParams.drive ?? 0.5;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.ampShaper.curve = this.makeDistortionCurve(ampEnabled ? drive : 0) as any;
     }
     if (this.ampBass) {

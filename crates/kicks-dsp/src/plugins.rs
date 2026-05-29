@@ -2,12 +2,12 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::f32::consts::PI;
 
-use crate::convolution::Convolver;
-use crate::nam::{NamModelInfo, NeuralModel};
 use crate::bass_amp::BassAmp;
-use crate::tuner::Tuner;
-use crate::metronome::Metronome;
+use crate::convolution::Convolver;
 use crate::looper::Looper;
+use crate::metronome::Metronome;
+use crate::nam::{NamModelInfo, NeuralModel};
+use crate::tuner::Tuner;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DSP Utilities
@@ -45,7 +45,8 @@ struct BiquadFilter {
 impl BiquadFilter {
     fn process(&mut self, sample: f32) -> f32 {
         let out = self.b0 * sample + self.b1 * self.x1 + self.b2 * self.x2
-                  - self.a1 * self.y1 - self.a2 * self.y2;
+            - self.a1 * self.y1
+            - self.a2 * self.y2;
         self.x2 = self.x1;
         self.x1 = sample;
         self.y2 = self.y1;
@@ -70,9 +71,15 @@ impl BiquadFilter {
         let a2 = (a + 1.0) + (a - 1.0) * cos_w0 - 2.0 * sqrt_2a * alpha;
 
         Self {
-            b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-            a1: a1 / a0, a2: a2 / a0,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
@@ -93,9 +100,15 @@ impl BiquadFilter {
         let a2 = (a + 1.0) - (a - 1.0) * cos_w0 - 2.0 * sqrt_2a * alpha;
 
         Self {
-            b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-            a1: a1 / a0, a2: a2 / a0,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
@@ -115,9 +128,15 @@ impl BiquadFilter {
         let a2 = 1.0 - alpha / a;
 
         Self {
-            b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-            a1: a1 / a0, a2: a2 / a0,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
@@ -136,9 +155,15 @@ impl BiquadFilter {
         let a2 = 1.0 - alpha;
 
         Self {
-            b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-            a1: a1 / a0, a2: a2 / a0,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
@@ -157,9 +182,15 @@ impl BiquadFilter {
         let a2 = 1.0 - alpha;
 
         Self {
-            b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-            a1: a1 / a0, a2: a2 / a0,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 }
@@ -252,8 +283,12 @@ impl Plugin for Passthrough {
 
     fn set_parameter(&mut self, _id: &str, _value: f32) {}
 
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -305,8 +340,12 @@ impl Plugin for Boost {
         }
     }
 
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -457,17 +496,33 @@ impl Plugin for Amp {
         match id {
             "gain" => self.gain = value.clamp(0.0, 1.0),
             "master" => self.master = value.clamp(0.0, 1.0),
-            "bass" => { self.bass = value.clamp(0.0, 1.0); self.params_dirty = true; }
-            "mid" => { self.mid = value.clamp(0.0, 1.0); self.params_dirty = true; }
-            "treble" => { self.treble = value.clamp(0.0, 1.0); self.params_dirty = true; }
+            "bass" => {
+                self.bass = value.clamp(0.0, 1.0);
+                self.params_dirty = true;
+            }
+            "mid" => {
+                self.mid = value.clamp(0.0, 1.0);
+                self.params_dirty = true;
+            }
+            "treble" => {
+                self.treble = value.clamp(0.0, 1.0);
+                self.params_dirty = true;
+            }
             "drive" => self.drive = value.clamp(0.0, 1.0),
-            "bass_mode" => { self.bass_mode = value.clamp(0.0, 1.0); self.params_dirty = true; }
+            "bass_mode" => {
+                self.bass_mode = value.clamp(0.0, 1.0);
+                self.params_dirty = true;
+            }
             _ => {}
         }
     }
 
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -549,7 +604,8 @@ impl Cab {
         self.ir_path = Some(path);
         tracing::info!(
             "Cab: loaded IR '{}' ({} samples, {:.1} ms, {} Hz)",
-            file_name, ir_data.len(),
+            file_name,
+            ir_data.len(),
             ir_data.len() as f32 / ir_sample_rate * 1000.0,
             ir_sample_rate
         );
@@ -637,14 +693,24 @@ impl Plugin for Cab {
     fn set_parameter(&mut self, id: &str, value: f32) {
         match id {
             "level" => self.level = value.clamp(0.0, 1.0),
-            "low_cut" => { self.low_cut = value.clamp(0.0, 1.0); self.params_dirty = true; }
-            "high_cut" => { self.high_cut = value.clamp(0.0, 1.0); self.params_dirty = true; }
+            "low_cut" => {
+                self.low_cut = value.clamp(0.0, 1.0);
+                self.params_dirty = true;
+            }
+            "high_cut" => {
+                self.high_cut = value.clamp(0.0, 1.0);
+                self.params_dirty = true;
+            }
             _ => {}
         }
     }
 
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -683,7 +749,10 @@ impl Nam {
         self.model_path = Some(path);
         tracing::info!(
             "Nam: loaded model '{}' (arch: {}, {} Hz, {} params)",
-            file_name, arch, sr, 0
+            file_name,
+            arch,
+            sr,
+            0
         );
     }
 
@@ -728,7 +797,11 @@ impl Plugin for Nam {
     fn process(&mut self, input: &[f32], output: &mut [f32]) -> anyhow::Result<()> {
         let level = self.level;
         if input.len() != output.len() {
-            anyhow::bail!("Nam: input/output length mismatch ({} vs {})", input.len(), output.len());
+            anyhow::bail!(
+                "Nam: input/output length mismatch ({} vs {})",
+                input.len(),
+                output.len()
+            );
         }
         if let Some(ref mut model) = self.model {
             model.process(input, output);
@@ -755,8 +828,103 @@ impl Plugin for Nam {
         }
     }
 
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Input — Passthrough for signal chain consistency
+// ═══════════════════════════════════════════════════════════════════════════════
+
+pub struct Input;
+
+impl Plugin for Input {
+    fn name(&self) -> &str {
+        "input"
+    }
+
+    fn init(&mut self, _sample_rate: f64) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn process(&mut self, input: &[f32], output: &mut [f32]) -> anyhow::Result<()> {
+        output.copy_from_slice(input);
+        Ok(())
+    }
+
+    fn get_parameter(&self, _id: &str) -> Option<f32> {
+        None
+    }
+
+    fn set_parameter(&mut self, _id: &str, _value: f32) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Output — Master volume stage
+// ═══════════════════════════════════════════════════════════════════════════════
+
+pub struct Output {
+    volume: f32,
+}
+
+impl Default for Output {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Output {
+    pub fn new() -> Self {
+        Self { volume: 0.8 }
+    }
+}
+
+impl Plugin for Output {
+    fn name(&self) -> &str {
+        "output"
+    }
+
+    fn init(&mut self, _sample_rate: f64) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn process(&mut self, input: &[f32], output: &mut [f32]) -> anyhow::Result<()> {
+        for (i, sample) in input.iter().enumerate() {
+            output[i] = sample * self.volume;
+        }
+        Ok(())
+    }
+
+    fn get_parameter(&self, id: &str) -> Option<f32> {
+        match id {
+            "volume" => Some(self.volume),
+            _ => None,
+        }
+    }
+
+    fn set_parameter(&mut self, id: &str, value: f32) {
+        if id == "volume" {
+            self.volume = value.clamp(0.0, 1.0);
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -845,15 +1013,22 @@ impl Plugin for Delay {
 
     fn set_parameter(&mut self, id: &str, value: f32) {
         match id {
-            "time" => { self.time = value.clamp(0.0, 1.0); self.update_delay(); }
+            "time" => {
+                self.time = value.clamp(0.0, 1.0);
+                self.update_delay();
+            }
             "feedback" => self.feedback = value.clamp(0.0, 0.99),
             "mix" => self.mix = value.clamp(0.0, 1.0),
             _ => {}
         }
     }
 
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1043,15 +1218,25 @@ impl Plugin for Reverb {
 
     fn set_parameter(&mut self, id: &str, value: f32) {
         match id {
-            "size" => { self.size = value.clamp(0.0, 1.0); self.params_dirty = true; }
-            "damping" => { self.damping = value.clamp(0.0, 1.0); self.params_dirty = true; }
+            "size" => {
+                self.size = value.clamp(0.0, 1.0);
+                self.params_dirty = true;
+            }
+            "damping" => {
+                self.damping = value.clamp(0.0, 1.0);
+                self.params_dirty = true;
+            }
             "mix" => self.mix = value.clamp(0.0, 1.0),
             _ => {}
         }
     }
 
-    fn as_any(&self) -> &dyn Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1208,7 +1393,8 @@ impl PluginRegistry {
     ///
     /// Returns `true` if the plugin was found and the parameter set.
     pub fn set_parameter_on_plugin(&mut self, plugin_name: &str, id: &str, value: f32) -> bool {
-        self.parameters.insert(format!("{}.{}", plugin_name, id), value);
+        self.parameters
+            .insert(format!("{}.{}", plugin_name, id), value);
         for plugin in &mut self.plugins {
             if plugin.name() == plugin_name && plugin.get_parameter(id).is_some() {
                 plugin.set_parameter(id, value);
@@ -1222,10 +1408,13 @@ impl PluginRegistry {
     ///
     /// Returns `true` if the plugin was found.
     pub fn set_plugin_enabled(&mut self, plugin_name: &str, enabled: bool) -> bool {
-        for plugin in &mut self.plugins {
+        for (i, plugin) in self.plugins.iter().enumerate() {
             if plugin.name() == plugin_name {
-                // Store enabled state in the parameter override map
-                self.parameters.insert(format!("{}.__enabled", plugin_name), if enabled { 1.0 } else { 0.0 });
+                self.enabled[i] = enabled;
+                self.parameters.insert(
+                    format!("{}.__enabled", plugin_name),
+                    if enabled { 1.0 } else { 0.0 },
+                );
                 return true;
             }
         }
@@ -1267,14 +1456,16 @@ impl PluginRegistry {
         self.parameters.insert(id.to_string(), value);
     }
 
-    /// Build a default signal chain: Boost → Amp → Cab → Delay → Reverb.
+    /// Build a default signal chain: Input → Boost → Amp → Cab → Delay → Reverb → Output.
     pub fn build_default_chain(&mut self) {
         self.clear();
+        self.add_plugin(Box::new(Input));
         self.add_plugin(Box::new(Boost::new()));
         self.add_plugin(Box::new(Amp::new()));
         self.add_plugin(Box::new(Cab::new()));
         self.add_plugin(Box::new(Delay::new()));
         self.add_plugin(Box::new(Reverb::new()));
+        self.add_plugin(Box::new(Output::new()));
     }
 
     /// Build a bass signal chain: Boost → BassAmp → Cab → Delay → Reverb.
@@ -1497,7 +1688,9 @@ mod tests {
     use super::*;
 
     fn test_buffer(size: usize) -> Vec<f32> {
-        (0..size).map(|i| (i as f32 / size as f32) * 0.5 - 0.25).collect()
+        (0..size)
+            .map(|i| (i as f32 / size as f32) * 0.5 - 0.25)
+            .collect()
     }
 
     #[test]
@@ -1610,7 +1803,7 @@ mod tests {
     fn test_registry_default_chain() {
         let mut registry = PluginRegistry::new();
         registry.build_default_chain();
-        assert_eq!(registry.len(), 5);
+        assert_eq!(registry.len(), 7);
     }
 
     #[test]
@@ -1629,7 +1822,9 @@ mod tests {
     fn test_biquad_lowpass() {
         let mut lp = BiquadFilter::design_lowpass(48000.0, 500.0, 0.707);
         // DC should pass through (IIR needs ~5 time constants to settle; at 500Hz ~15 samples each)
-        for _ in 0..200 { lp.process(1.0); }
+        for _ in 0..200 {
+            lp.process(1.0);
+        }
         let dc_out = lp.process(1.0);
         assert!((dc_out - 1.0).abs() < 1e-3);
     }

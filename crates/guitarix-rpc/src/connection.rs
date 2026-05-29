@@ -68,7 +68,12 @@ impl ConnectionManager {
             }
             Err(e) => {
                 self.state = ConnectionState::Failed;
-                tracing::warn!("Failed to connect to Guitarix at {}:{}: {}", self.host, self.port, e);
+                tracing::warn!(
+                    "Failed to connect to Guitarix at {}:{}: {}",
+                    self.host,
+                    self.port,
+                    e
+                );
                 Err(e)
             }
         }
@@ -84,7 +89,9 @@ impl ConnectionManager {
                 let delay = self.backoff_delay(attempt);
                 tracing::info!(
                     "Reconnect attempt {}/{} in {:?}...",
-                    attempt, self.max_retries, delay
+                    attempt,
+                    self.max_retries,
+                    delay
                 );
                 self.state = ConnectionState::Reconnecting;
                 sleep(delay).await;
@@ -101,7 +108,10 @@ impl ConnectionManager {
         self.state = ConnectionState::Failed;
         tracing::error!(
             "Failed to connect after {} retries ({}:{}): {}",
-            self.max_retries, self.host, self.port, last_error
+            self.max_retries,
+            self.host,
+            self.port,
+            last_error
         );
         Err(last_error)
     }

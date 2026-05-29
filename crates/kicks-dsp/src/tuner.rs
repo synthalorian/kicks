@@ -146,7 +146,11 @@ impl Tuner {
         // Step 5: Parabolic interpolation for finer period estimate
         let t0 = best_tau as f32;
         let y0 = cmnd[best_tau];
-        let y1 = if best_tau + 1 < YIN_MAX_PERIOD { cmnd[best_tau + 1] } else { y0 };
+        let y1 = if best_tau + 1 < YIN_MAX_PERIOD {
+            cmnd[best_tau + 1]
+        } else {
+            y0
+        };
         let y_1 = if best_tau > 0 { cmnd[best_tau - 1] } else { y0 };
 
         let a = (y1 + y_1) / 2.0 - y0;
@@ -293,8 +297,12 @@ impl Plugin for Tuner {
         }
     }
 
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────

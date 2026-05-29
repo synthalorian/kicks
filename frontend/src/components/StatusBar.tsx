@@ -9,10 +9,10 @@ export function StatusBar({ version, engineStatus }: StatusBarProps) {
       <div className="flex items-center gap-4">
         <span className="flex items-center gap-1.5">
           <span className={`w-1.5 h-1.5 rounded-full ${engineStatus === 'connected' ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'}`} />
-          JACK {engineStatus === 'connected' ? 'ACTIVE' : 'INACTIVE'}
+          ENGINE {engineStatus === 'connected' ? 'ACTIVE' : 'INACTIVE'}
         </span>
         <span className="text-[var(--border)]">|</span>
-        <span>CPU — 0.0%</span>
+        <span>CPU — —%</span>
         <span className="text-[var(--border)]">|</span>
         <span>48.0 kHz</span>
         <span className="text-[var(--border)]">|</span>

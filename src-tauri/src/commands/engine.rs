@@ -20,18 +20,29 @@ pub struct EngineStatus {
 /// Helper to read a WAV file and load it into the engine's Cab plugin.
 fn load_ir_from_file(path: &str, eng: &mut KicksEngine) -> Result<super::ir::IrLoadResult, String> {
     let fpath = Path::new(path);
-    let mut reader = hound::WavReader::open(fpath).map_err(|e| format!("Failed to open WAV: {}", e))?;
+    let mut reader =
+        hound::WavReader::open(fpath).map_err(|e| format!("Failed to open WAV: {}", e))?;
     let spec = reader.spec();
     let channels = spec.channels as usize;
 
     let samples: Vec<f32> = match spec.sample_format {
-        hound::SampleFormat::Float => {
-            reader.samples::<f32>().filter_map(|s| s.ok()).collect()
-        }
+        hound::SampleFormat::Float => reader.samples::<f32>().filter_map(|s| s.ok()).collect(),
         hound::SampleFormat::Int => match spec.bits_per_sample {
-            16 => reader.samples::<i16>().filter_map(|s| s.ok()).map(|s| s as f32 / 32768.0).collect(),
-            24 => reader.samples::<i32>().filter_map(|s| s.ok()).map(|s| s as f32 / 8388608.0).collect(),
-            32 => reader.samples::<i32>().filter_map(|s| s.ok()).map(|s| s as f32 / 2147483648.0).collect(),
+            16 => reader
+                .samples::<i16>()
+                .filter_map(|s| s.ok())
+                .map(|s| s as f32 / 32768.0)
+                .collect(),
+            24 => reader
+                .samples::<i32>()
+                .filter_map(|s| s.ok())
+                .map(|s| s as f32 / 8388608.0)
+                .collect(),
+            32 => reader
+                .samples::<i32>()
+                .filter_map(|s| s.ok())
+                .map(|s| s as f32 / 2147483648.0)
+                .collect(),
             _ => return Err(format!("Unsupported bit depth: {}", spec.bits_per_sample)),
         },
     };
@@ -39,17 +50,27 @@ fn load_ir_from_file(path: &str, eng: &mut KicksEngine) -> Result<super::ir::IrL
     let mono_samples: Vec<f32> = if channels > 1 {
         let frame_count = samples.len() / channels;
         (0..frame_count)
-            .map(|f| (0..channels).map(|ch| samples[f * channels + ch]).sum::<f32>() / channels as f32)
+            .map(|f| {
+                (0..channels)
+                    .map(|ch| samples[f * channels + ch])
+                    .sum::<f32>()
+                    / channels as f32
+            })
             .collect()
     } else {
         samples
     };
 
-    let file_name = fpath.file_name()
+    let file_name = fpath
+        .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    eng.load_ir_to_cab(path.to_string(), mono_samples.clone(), spec.sample_rate as f32);
+    eng.load_ir_to_cab(
+        path.to_string(),
+        mono_samples.clone(),
+        spec.sample_rate as f32,
+    );
 
     let total_samples = mono_samples.len();
     let ir_len_ms = if spec.sample_rate > 0 {
@@ -86,7 +107,9 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
     let eng = Arc::new(Mutex::new(KicksEngine::new()));
     {
         let mut eng_inner = eng.lock().map_err(|e| e.to_string())?;
-        eng_inner.init(sample_rate, buffer_size).map_err(|e| e.to_string())?;
+        eng_inner
+            .init(sample_rate, buffer_size)
+            .map_err(|e| e.to_string())?;
     }
 
     // Auto-load any previously saved IR
@@ -99,7 +122,11 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
         if fpath.exists() {
             let mut eng_inner = eng.lock().map_err(|e| e.to_string())?;
             if let Ok(ir_result) = load_ir_from_file(&ir_path, &mut eng_inner) {
-                tracing::info!("Auto-loaded IR: {} ({} samples)", ir_result.file_name, ir_result.length_samples);
+                tracing::info!(
+                    "Auto-loaded IR: {} ({} samples)",
+                    ir_result.file_name,
+                    ir_result.length_samples
+                );
             } else {
                 tracing::warn!("Failed to auto-load IR from saved path: {}", ir_path);
             }
@@ -114,7 +141,11 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
     let chain = state.signal_chain.lock().map_err(|e| e.to_string())?;
     {
         let mut eng_inner = eng.lock().map_err(|e| e.to_string())?;
-        if let Some(slot) = chain.slots.iter().find(|s| matches!(s.plugin_type, PluginType::BassAmp)) {
+        if let Some(slot) = chain
+            .slots
+            .iter()
+            .find(|s| matches!(s.plugin_type, PluginType::BassAmp))
+        {
             let bass_val = slot.parameters.get("bass_mode").copied().unwrap_or(1.0);
             eng_inner.set_parameter("bass_mode", bass_val);
         }
@@ -143,8 +174,16 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
     let audio_config = AudioConfig {
         sample_rate,
         buffer_size,
-        output_device: if audio_device.is_empty() { None } else { Some(audio_device.clone()) },
-        input_device: if audio_device.is_empty() { None } else { Some(audio_device) },
+        output_device: if audio_device.is_empty() {
+            None
+        } else {
+            Some(audio_device.clone())
+        },
+        input_device: if audio_device.is_empty() {
+            None
+        } else {
+            Some(audio_device)
+        },
     };
 
     let mut audio_io = state.audio_io.lock().map_err(|e| e.to_string())?;
@@ -156,7 +195,11 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
             .map_err(|e| format!("Failed to start audio I/O: {}", e))?;
     }
 
-    tracing::info!("Audio engine started with CPAL I/O ({} Hz, buffer {})", sample_rate, buffer_size);
+    tracing::info!(
+        "Audio engine started with CPAL I/O ({} Hz, buffer {})",
+        sample_rate,
+        buffer_size
+    );
     Ok(())
 }
 
@@ -187,11 +230,19 @@ pub fn stop_engine(state: State<'_, AppState>) -> Result<(), String> {
 pub fn engine_status(state: State<'_, AppState>) -> EngineStatus {
     let engine_guard = state.engine.lock();
     match engine_guard {
-        Ok(guard) if guard.is_some() => EngineStatus {
-            running: true,
-            sample_rate: 48000.0,
-            buffer_size: 256,
-        },
+        Ok(guard) if guard.is_some() => {
+            // Try to get actual config values; fall back to defaults if locked
+            let (sr, bs) = if let Ok(cfg) = state.config.try_lock() {
+                (cfg.sample_rate as f64, cfg.buffer_size)
+            } else {
+                (48000.0, 256)
+            };
+            EngineStatus {
+                running: true,
+                sample_rate: sr,
+                buffer_size: bs,
+            }
+        }
         _ => EngineStatus {
             running: false,
             sample_rate: 0.0,

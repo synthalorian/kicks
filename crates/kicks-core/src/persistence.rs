@@ -21,8 +21,7 @@ pub fn config_dir() -> PathBuf {
     let base = std::env::var("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
-            let home = std::env::var("HOME")
-                .unwrap_or_else(|_| "/tmp".to_string());
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
             PathBuf::from(home).join(".config")
         });
     base.join("kicks")
@@ -72,8 +71,8 @@ pub fn load_json<T: DeserializeOwned>(path: &Path) -> Result<Option<T>> {
     if !path.exists() {
         return Ok(None);
     }
-    let bytes = std::fs::read(path)
-        .with_context(|| format!("Failed to read {}", path.display()))?;
+    let bytes =
+        std::fs::read(path).with_context(|| format!("Failed to read {}", path.display()))?;
     let value = serde_json::from_slice(&bytes)
         .with_context(|| format!("Failed to parse JSON from {}", path.display()))?;
     Ok(Some(value))
@@ -100,7 +99,11 @@ pub fn load_presets() -> PresetCollection {
     let path = presets_path();
     match load_json::<PresetCollection>(&path) {
         Ok(Some(collection)) => {
-            tracing::info!("Loaded {} banks from {}", collection.banks.len(), path.display());
+            tracing::info!(
+                "Loaded {} banks from {}",
+                collection.banks.len(),
+                path.display()
+            );
             collection
         }
         Ok(None) => {

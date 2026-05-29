@@ -17,7 +17,7 @@ describe('Sidebar', () => {
   it('highlights the active page', () => {
     render(<Sidebar activePage="presets" onNavigate={() => {}} />);
     const activeBtn = screen.getByText('Presets').closest('button');
-    expect(activeBtn?.className).toContain('bg-[var(--accent)]');
+    expect(activeBtn?.className).toContain('bg-[var(--accent-bg)]');
   });
 
   it('calls onNavigate when a page is clicked', () => {

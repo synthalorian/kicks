@@ -23,9 +23,9 @@ export function NAMBrowser() {
       try {
         const results = await api.listNamFiles();
         setFiles(results);
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to list NAM files');
-        console.error('Failed to list NAM files:', err);
+        console.error('Failed to list NAM files:', _err);
       } finally {
         setLoading(false);
       }
@@ -59,7 +59,7 @@ export function NAMBrowser() {
     try {
       await api.clearNamModel();
       setLoadedModel(null);
-    } catch (err) {
+    } catch {
       setError('Failed to clear NAM model');
     }
   }, []);

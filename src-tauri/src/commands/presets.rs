@@ -48,11 +48,8 @@ pub fn list_presets(state: State<'_, AppState>) -> Vec<BankDescriptor> {
 /// Save the current signal chain as a named preset.
 #[tauri::command]
 pub fn save_preset(
-    state: State<'_, AppState>,
-    bank_name: String,
-    preset_name: String,
-    description: Option<String>,
-    tags: Option<Vec<String>>,
+    state: State<'_, AppState>, bank_name: String, preset_name: String,
+    description: Option<String>, tags: Option<Vec<String>>,
 ) -> Result<(), String> {
     let chain = state.signal_chain.lock().map_err(|e| e.to_string())?;
     let mut collection = state.presets.lock().map_err(|e| e.to_string())?;
@@ -88,9 +85,7 @@ pub fn save_preset(
 /// Load a preset, applying its signal chain.
 #[tauri::command]
 pub fn load_preset(
-    state: State<'_, AppState>,
-    bank_name: String,
-    preset_name: String,
+    state: State<'_, AppState>, bank_name: String, preset_name: String,
 ) -> Result<(), String> {
     let collection = state.presets.lock().map_err(|e| e.to_string())?;
     let mut chain = state.signal_chain.lock().map_err(|e| e.to_string())?;
@@ -115,9 +110,7 @@ pub fn load_preset(
 /// Delete a preset from a bank.
 #[tauri::command]
 pub fn delete_preset(
-    state: State<'_, AppState>,
-    bank_name: String,
-    preset_name: String,
+    state: State<'_, AppState>, bank_name: String, preset_name: String,
 ) -> Result<(), String> {
     let mut collection = state.presets.lock().map_err(|e| e.to_string())?;
 
@@ -133,16 +126,16 @@ pub fn delete_preset(
         }
     }
 
-    Err(format!("Preset '{}' not found in bank '{}'", preset_name, bank_name))
+    Err(format!(
+        "Preset '{}' not found in bank '{}'",
+        preset_name, bank_name
+    ))
 }
 
 /// Rename a preset.
 #[tauri::command]
 pub fn rename_preset(
-    state: State<'_, AppState>,
-    bank_name: String,
-    old_name: String,
-    new_name: String,
+    state: State<'_, AppState>, bank_name: String, old_name: String, new_name: String,
 ) -> Result<(), String> {
     let mut collection = state.presets.lock().map_err(|e| e.to_string())?;
 

@@ -73,8 +73,10 @@ export function Visualizer() {
         const analyser = webAudioEngine.getAnalyser();
         if (analyser) {
           waveform = new Float32Array(analyser.frequencyBinCount);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           analyser.getFloatTimeDomainData(waveform as any);
           freqData = new Uint8Array(analyser.frequencyBinCount);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           analyser.getByteFrequencyData(freqData as any);
         }
       }
@@ -89,7 +91,7 @@ export function Visualizer() {
       const points = 300;
       for (let i = 0; i < points; i++) {
         const x = (i / (points - 1)) * w;
-        let sample = 0;
+        let sample: number;
         if (waveform && waveform.length > 0) {
           const idx = Math.floor((i / points) * waveform.length);
           sample = waveform[idx];
@@ -113,7 +115,7 @@ export function Visualizer() {
       const baseY = h - 4;
 
       for (let i = 0; i < barCount; i++) {
-        let height = 0;
+        let height: number;
         if (freqData && freqData.length > 0) {
           const binsPerBar = Math.floor(freqData.length / barCount);
           let sum = 0;

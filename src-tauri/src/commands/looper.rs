@@ -38,10 +38,7 @@ pub fn get_looper_state(state: State<'_, AppState>) -> Result<LooperState, Strin
 /// Trigger a looper mode change.
 /// Mode values: 0=idle, 1=record, 2=overdub, 3=play, 4=stop
 #[tauri::command]
-pub fn trigger_looper_mode(
-    state: State<'_, AppState>,
-    mode: u8,
-) -> Result<bool, String> {
+pub fn trigger_looper_mode(state: State<'_, AppState>, mode: u8) -> Result<bool, String> {
     let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref eng) = *engine_guard {
         let mut eng_inner = eng.lock().map_err(|e| e.to_string())?;
