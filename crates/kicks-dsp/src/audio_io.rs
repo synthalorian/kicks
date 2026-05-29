@@ -120,8 +120,8 @@ impl CpalAudioIO {
 
             let err_fn = |err| tracing::error!("CPAL stream error: {}", err);
 
-            // Ring buffer: input callback → output callback
-            let ring_capacity = (bs as usize) * 2 * 8;
+            // Ring buffer: input callback → output callback (mono)
+            let ring_capacity = bs as usize * 8;
             let ring = HeapRb::<f32>::new(ring_capacity);
             let (producer, mut consumer) = ring.split();
 
@@ -131,8 +131,10 @@ impl CpalAudioIO {
                 dev.build_input_stream::<f32, _, _>(
                     &stream_config,
                     move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                        for &s in data {
-                            let _ = prod.try_push(s);
+                        // CPAL gives us interleaved stereo; convert to mono by taking left channel
+                        for frame in data.chunks(2) {
+                            let mono = frame.first().copied().unwrap_or(0.0);
+                            let _ = prod.try_push(mono);
                         }
                     },
                     err_fn,
@@ -149,7 +151,8 @@ impl CpalAudioIO {
 
             // ── Output stream ──
             // Pre-allocated input buffer avoids allocation in audio callback
-            let mut input_buf = vec![0.0f32; bs as usize * 2];
+            let mut input_buf = vec![0.0f32; bs as usize];
+            let mut output_buf = vec![0.0f32; bs as usize];
             let eng = engine;
             let mut param_rx = param_rx;
 
@@ -157,9 +160,8 @@ impl CpalAudioIO {
                 .build_output_stream::<f32, _, _>(
                     &stream_config,
                     move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                        // Drain ring buffer into input_buf; leave output zeroed until
-                        // the engine overwrites it with processed audio.
-                        for (_i, input_slot) in input_buf.iter_mut().enumerate().take(data.len()) {
+                        // Drain ring buffer into mono input_buf
+                        for input_slot in input_buf.iter_mut() {
                             *input_slot = consumer.try_pop().unwrap_or(0.0);
                         }
 
@@ -172,10 +174,17 @@ impl CpalAudioIO {
                                 eng.set_parameter(&id, value);
                             }
 
-                            let _ = eng.process(&input_buf[..data.len()], data);
+                            let _ = eng.process(&input_buf, &mut output_buf);
                         }
-                        // If try_lock fails, output stays zero (silence) rather than
-                        // leaking dry input — safer for live guitar processing.
+                        // If try_lock fails, output_buf stays zero (silence)
+
+        // Duplicate mono output to stereo interleaved
+                        for (frame, &mono) in data.chunks_mut(2).zip(output_buf.iter()) {
+                            frame[0] = mono;
+                            if let Some(right) = frame.get_mut(1) {
+                                *right = mono;
+                            }
+                        }
                     },
                     |err| tracing::error!("CPAL output stream error: {}", err),
                     None,
