@@ -58,8 +58,10 @@ pub struct Looper {
     /// Whether the undo buffer is valid.
     undo_valid: bool,
     /// Quantize to bar length in samples (0 = off).
+    #[allow(dead_code)]
     quantize_samples: usize,
     /// Sample counter for quantization.
+    #[allow(dead_code)]
     quantize_counter: usize,
     /// Crossfade length for seamless overdub boundaries.
     xfader_samples: usize,
@@ -297,7 +299,7 @@ impl Plugin for Looper {
                         while self.read_pos < 0.0 {
                             self.read_pos += self.loop_length as f32;
                         }
-                        self.read_pos = self.read_pos % self.loop_length as f32;
+                        self.read_pos %= self.loop_length as f32;
                     }
 
                     // Output: mixed loop + input
@@ -322,7 +324,7 @@ impl Plugin for Looper {
                         while self.read_pos < 0.0 {
                             self.read_pos += self.loop_length as f32;
                         }
-                        self.read_pos = self.read_pos % self.loop_length as f32;
+                        self.read_pos %= self.loop_length as f32;
                     }
 
                     output[i] = (loop_sample * mix + sample * (1.0 - mix)) * vol * fade_gain;

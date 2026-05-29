@@ -8,8 +8,6 @@ use crate::bass_amp::BassAmp;
 use crate::tuner::Tuner;
 use crate::metronome::Metronome;
 use crate::looper::Looper;
-#[cfg(feature = "fft-convolution")]
-use crate::fft_convolution::FftConvolver;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DSP Utilities

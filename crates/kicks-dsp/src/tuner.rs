@@ -89,9 +89,9 @@ impl Tuner {
     fn analyze_pitch(&mut self) {
         // Step 1: Extract contiguous samples from the circular buffer
         let samples = &mut self.yin_samples;
-        for i in 0..YIN_BUFFER_SIZE {
+        for (i, sample) in samples.iter_mut().enumerate().take(YIN_BUFFER_SIZE) {
             let idx = (self.write_pos + i) % YIN_BUFFER_SIZE;
-            samples[i] = self.buffer[idx];
+            *sample = self.buffer[idx];
         }
 
         // Step 2: Compute difference function
