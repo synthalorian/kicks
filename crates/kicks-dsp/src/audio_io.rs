@@ -87,9 +87,13 @@ impl CpalAudioIO {
     /// parameter changes to the engine.  Because the main thread pushes to
     /// the producer side (never locking the engine mutex), `try_lock` in the
     /// callback almost always succeeds.
+    ///
+    /// `cpu_load` is an optional atomic counter for DSP CPU usage monitoring.
+    /// When provided, the callback stores (percentage * 1000) on each cycle.
     pub fn start(
         &mut self, engine: Arc<Mutex<KicksEngine>>, config: AudioConfig,
         #[cfg(feature = "cpal-backend")] param_rx: ringbuf::HeapCons<(String, f32)>,
+        cpu_load: Option<Arc<std::sync::atomic::AtomicU64>>,
     ) -> Result<()> {
         #[cfg(feature = "cpal-backend")]
         {
@@ -181,6 +185,8 @@ impl CpalAudioIO {
                             *input_slot = consumer.try_pop().unwrap_or(0.0);
                         }
 
+                        let start = std::time::Instant::now();
+
                         if let Ok(mut eng) = eng.try_lock() {
                             // Drain pending parameter changes (lock-free SPSC
                             // queue) before processing audio.  The main thread
@@ -193,6 +199,13 @@ impl CpalAudioIO {
                             let _ = eng.process(&input_buf, &mut output_buf);
                         }
                         // If try_lock fails, output_buf stays zero (silence)
+
+                        let elapsed = start.elapsed().as_secs_f64();
+                        let budget = bs as f64 / sr as f64;
+                        let pct = ((elapsed / budget) * 1000.0).min(100_000.0) as u64;
+                        if let Some(ref atomic) = cpu_load {
+                            atomic.store(pct, std::sync::atomic::Ordering::Relaxed);
+                        }
 
                         // Duplicate mono output to stereo interleaved
                         for (frame, &mono) in data.chunks_mut(2).zip(output_buf.iter()) {

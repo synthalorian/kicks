@@ -8,7 +8,7 @@ export function Toolbar({ engineStatus, modeLabel }: ToolbarProps) {
   const isConnecting = engineStatus === 'connecting';
 
   return (
-    <header className="flex items-center justify-between px-5 py-2.5 border-b border-[var(--border)] bg-[var(--bg-surface)]/90 backdrop-blur shrink-0">
+    <header data-testid="toolbar" className="flex items-center justify-between px-5 py-2.5 border-b border-[var(--border)] bg-[var(--bg-surface)]/90 backdrop-blur shrink-0">
       <div className="flex items-center gap-4">
         <h1 className="font-display text-xl font-black text-[var(--accent)] tracking-[0.15em] neon-text">
           KICKS

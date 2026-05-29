@@ -13,8 +13,12 @@ interface EngineState {
   loading: boolean;
   /** Per-plugin RMS audio levels (0..1), updated via polling. */
   levels: number[];
-  /** Error from the last level poll (e.g. engine not running). */
+  /** Error from the last level poll. */
   levelsError: string | null;
+  /** CPU load percentage (0.0 – 100.0+), updated via polling. */
+  cpuLoad: number;
+  /** Error from the last CPU load poll. */
+  cpuError: string | null;
   /** Whether the app is running inside Tauri (real Rust backend) or browser (Web Audio). */
   isTauri: boolean;
 
@@ -42,6 +46,8 @@ interface EngineState {
   redo: () => Promise<void>;
   /** Poll the latest audio levels from the backend. */
   pollLevels: () => Promise<void>;
+  /** Poll the latest CPU load from the backend. */
+  pollCpu: () => Promise<void>;
 }
 
 export const useEngineStore = create<EngineState>((set, get) => ({
@@ -50,6 +56,8 @@ export const useEngineStore = create<EngineState>((set, get) => ({
   loading: false,
   levels: [],
   levelsError: null,
+  cpuLoad: 0,
+  cpuError: null,
   isTauri: isTauriAvailable(),
 
   fetchStatus: async () => {
@@ -213,6 +221,17 @@ export const useEngineStore = create<EngineState>((set, get) => ({
     } else {
       const levels = webAudioEngine.getLevels();
       set({ levels, levelsError: null });
+    }
+  },
+
+  pollCpu: async () => {
+    if (get().isTauri) {
+      try {
+        const cpu = await api.getCpuLoad();
+        set({ cpuLoad: cpu, cpuError: null });
+      } catch (err) {
+        set({ cpuLoad: 0, cpuError: String(err) });
+      }
     }
   },
 

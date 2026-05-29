@@ -611,7 +611,7 @@ pub struct NeuralModel {
 
 impl NeuralModel {
     /// Load a .nam file from disk and parse it into a NeuralModel.
-    pub fn from_file(path: &str) -> anyhow::Result<Self> {
+    pub fn from_file(path: &str) -> anyhow::Result<(Self, usize)> {
         let file_path = Path::new(path);
         if !file_path.exists() {
             anyhow::bail!("NAM file not found: {}", path);
@@ -622,6 +622,7 @@ impl NeuralModel {
 
         let sample_rate = nam.sample_rate.unwrap_or(48000);
         let arch_name = nam.architecture.clone();
+        let num_parameters = nam.weights.len();
         let mut reader = WeightReader::new(&nam.weights);
 
         let inner = match nam.architecture.as_str() {
@@ -641,11 +642,14 @@ impl NeuralModel {
             }
         };
 
-        Ok(Self {
-            inner,
-            arch_name,
-            sample_rate,
-        })
+        Ok((
+            Self {
+                inner,
+                arch_name,
+                sample_rate,
+            },
+            num_parameters,
+        ))
     }
 
     /// Process one buffer of audio samples through the neural model.
@@ -813,7 +817,7 @@ mod tests {
         let path = dir.join("unknown.nam");
         std::fs::write(&path, serde_json::to_vec(&nam_json).unwrap()).unwrap();
 
-        let mut model = NeuralModel::from_file(&path.to_string_lossy()).unwrap();
+        let (mut model, _num_params) = NeuralModel::from_file(&path.to_string_lossy()).unwrap();
         assert_eq!(model.architecture(), "UnknownArch");
 
         let input = vec![0.5f32; 32];

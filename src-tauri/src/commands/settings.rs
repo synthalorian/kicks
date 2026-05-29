@@ -2,6 +2,7 @@ use kicks_core::config::{AiProvider, EngineMode, KicksConfig};
 use kicks_dsp::param::param_channel;
 use kicks_dsp::{AudioConfig, AudioEngine};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tauri::State;
 
 use crate::AppState;
@@ -149,7 +150,8 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
             };
 
             if let Some(ref mut io) = *audio_io {
-                io.start(eng_arc.clone(), audio_config, param_rx)
+                let cpu_load = Arc::clone(&state.cpu_load);
+                io.start(eng_arc.clone(), audio_config, param_rx, Some(cpu_load))
                     .map_err(|e| format!("Failed to restart audio I/O: {}", e))?;
             }
 
