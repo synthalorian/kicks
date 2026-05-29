@@ -119,12 +119,11 @@ pub fn load_nam_model(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    let neural_model = kicks_dsp::NeuralModel::from_file(&path)
+    let (neural_model, num_parameters) = kicks_dsp::NeuralModel::from_file(&path)
         .map_err(|e| format!("Failed to load NAM model: {}", e))?;
 
     let architecture = neural_model.architecture().to_string();
     let sample_rate = neural_model.sample_rate();
-    let num_parameters = 0; // Not tracked in current NeuralModel
 
     tracing::info!(
         "Loading NAM model: {} (arch: {}, {} Hz)",

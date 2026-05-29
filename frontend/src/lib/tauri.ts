@@ -190,6 +190,8 @@ function simulate<T>(cmd: string, _args?: Record<string, unknown>): T {
         { name: 'Punk', description: 'Angry mid-forward distortion. Raw, aggressive, cutting.', tags: ['specialty', 'punk', 'aggressive'], gain: 0.60, master: 0.55, bass: 0.50, mid: 0.65, treble: 0.55, drive: 0.60 },
         { name: 'Grunge', description: 'Raw, unpolished, aggressive. A broken-in amp pushed past its limits.', tags: ['specialty', 'grunge', 'raw'], gain: 0.60, master: 0.50, bass: 0.55, mid: 0.50, treble: 0.45, drive: 0.65 },
       ] as T;
+    case 'get_cpu_load':
+      return 0.0 as T;
     default:
       return undefined as T;
   }
@@ -387,6 +389,10 @@ export async function clearNamModel(): Promise<void> {
 
 export async function getAudioLevels(): Promise<number[]> {
   return invoke<number[]>('get_audio_levels');
+}
+
+export async function getCpuLoad(): Promise<number> {
+  return invoke<number>('get_cpu_load');
 }
 
 // ── Tuner ──

@@ -1,6 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { StatusBar } from './StatusBar';
+
+vi.mock('../stores/engineStore', () => ({
+  useEngineStore: (selector: (s: Record<string, unknown>) => unknown) =>
+    selector({
+      cpuLoad: 0,
+      status: { running: true, sample_rate: 48000, buffer_size: 256 },
+      pollCpu: vi.fn(),
+    }),
+}));
 
 describe('StatusBar', () => {
   it('renders version string', () => {

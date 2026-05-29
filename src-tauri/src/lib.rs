@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 
 use kicks_core::config::KicksConfig;
@@ -36,6 +37,8 @@ pub struct AppState {
     pub undo_chain: Mutex<Vec<SignalChain>>,
     /// Stack of undone states for redo (newest first).
     pub redo_chain: Mutex<Vec<SignalChain>>,
+    /// CPU load from audio callback: value is (percentage * 1000) as u64.
+    pub cpu_load: Arc<AtomicU64>,
 }
 
 /// Configure tracing/logging for the application.
@@ -84,6 +87,7 @@ pub fn run() {
             midi_manager: Mutex::new(midi::MidiManager::new()),
             undo_chain: Mutex::new(Vec::new()),
             redo_chain: Mutex::new(Vec::new()),
+            cpu_load: Arc::new(AtomicU64::new(0)),
         })
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -108,6 +112,7 @@ pub fn run() {
             commands::engine::set_parameter,
             commands::engine::get_parameter,
             commands::engine::get_audio_levels,
+            commands::engine::get_cpu_load,
             // Signal Chain
             commands::signal_chain::get_signal_chain,
             commands::signal_chain::build_default_chain,

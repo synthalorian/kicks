@@ -3,8 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Kicks Frontend Smoke Tests', () => {
   test('homepage loads with title', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('header')).toContainText('KICKS');
-    await expect(page.locator('header')).toContainText('Guitar Workstation');
+    const toolbar = page.locator('[data-testid="toolbar"]');
+    await expect(toolbar).toContainText('KICKS');
+    await expect(toolbar).toContainText('Guitar Workstation');
   });
 
   test('sidebar navigation is present', async ({ page }) => {
@@ -21,19 +22,19 @@ test.describe('Kicks Frontend Smoke Tests', () => {
     const midiBtn = page.locator('nav button', { hasText: 'MIDI' });
     await midiBtn.click();
     // The active class is applied to the clicked button
-    await expect(midiBtn).toHaveClass(/bg-\[var\(--accent\)\]/);
+    await expect(midiBtn).toHaveClass(/bg-\[var\(--accent-bg\)\]/);
   });
 
   test('status bar shows version info', async ({ page }) => {
     await page.goto('/');
     const footer = page.locator('footer');
     await expect(footer).toBeVisible();
-    await expect(footer).toContainText('Kicks v');
+    await expect(footer).toContainText('v0.1.0');
   });
 
   test('engine status indicator is visible', async ({ page }) => {
     await page.goto('/');
-    const header = page.locator('header');
-    await expect(header).toContainText('Guitarix Connected');
+    const toolbar = page.locator('[data-testid="toolbar"]');
+    await expect(toolbar).toContainText('RUNNING');
   });
 });

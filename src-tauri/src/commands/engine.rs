@@ -191,7 +191,8 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
         *audio_io = Some(CpalAudioIO::new());
     }
     if let Some(ref mut io) = *audio_io {
-        io.start(eng_for_io, audio_config, param_rx)
+        let cpu_load = Arc::clone(&state.cpu_load);
+        io.start(eng_for_io, audio_config, param_rx, Some(cpu_load))
             .map_err(|e| format!("Failed to start audio I/O: {}", e))?;
     }
 
@@ -249,6 +250,16 @@ pub fn engine_status(state: State<'_, AppState>) -> EngineStatus {
             buffer_size: 0,
         },
     }
+}
+
+/// Get the DSP CPU load as a percentage (0.0 – 100.0+).
+///
+/// The audio callback measures processing time vs real-time budget
+/// and stores the value as (percentage * 1000) in an atomic counter.
+#[tauri::command]
+pub fn get_cpu_load(state: State<'_, AppState>) -> f64 {
+    let raw = state.cpu_load.load(std::sync::atomic::Ordering::Relaxed);
+    raw as f64 / 1000.0
 }
 
 /// Set a named parameter on the active engine.
