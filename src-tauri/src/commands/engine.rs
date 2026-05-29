@@ -112,10 +112,20 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
 
     // If the signal chain has a BassAmp, set bass_mode on the engine
     let chain = state.signal_chain.lock().map_err(|e| e.to_string())?;
-    if let Some(slot) = chain.slots.iter().find(|s| matches!(s.plugin_type, PluginType::BassAmp)) {
-        let bass_val = slot.parameters.get("bass_mode").copied().unwrap_or(1.0);
+    {
         let mut eng_inner = eng.lock().map_err(|e| e.to_string())?;
-        eng_inner.set_parameter("bass_mode", bass_val);
+        if let Some(slot) = chain.slots.iter().find(|s| matches!(s.plugin_type, PluginType::BassAmp)) {
+            let bass_val = slot.parameters.get("bass_mode").copied().unwrap_or(1.0);
+            eng_inner.set_parameter("bass_mode", bass_val);
+        }
+        // Apply all saved signal chain parameters to the engine
+        for slot in &chain.slots {
+            let plugin_name = slot.id.clone();
+            eng_inner.set_plugin_enabled(&plugin_name, slot.enabled);
+            for (param_id, value) in &slot.parameters {
+                eng_inner.set_parameter_on_plugin(&plugin_name, param_id, *value);
+            }
+        }
     }
     drop(chain);
 

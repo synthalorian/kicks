@@ -68,6 +68,20 @@ pub fn build_default_chain(state: State<'_, AppState>) -> Result<(), String> {
     let mut chain = state.signal_chain.lock().map_err(|e| e.to_string())?;
     *chain = SignalChain::default();
     persist_chain(&chain);
+    // Apply default chain to the running engine
+    for slot in &chain.slots.clone() {
+        let plugin_name = slot.id.clone();
+        if let Ok(engine_guard) = state.engine.try_lock() {
+            if let Some(ref eng_arc) = *engine_guard {
+                if let Ok(mut eng) = eng_arc.try_lock() {
+                    eng.set_plugin_enabled(&plugin_name, slot.enabled);
+                    for (param_id, value) in &slot.parameters {
+                        eng.set_parameter_on_plugin(&plugin_name, param_id, *value);
+                    }
+                }
+            }
+        }
+    }
     tracing::info!("Signal chain reset to default");
     Ok(())
 }
@@ -88,15 +102,32 @@ pub fn update_slot(
     match slot_idx {
         Some(idx) => {
             let slot = &mut chain.slots[idx];
+            let plugin_name = slot.id.clone();
             if let Some(en) = enabled {
                 slot.enabled = en;
+                // Also apply to the running engine
+                if let Ok(engine_guard) = state.engine.try_lock() {
+                    if let Some(ref eng_arc) = *engine_guard {
+                        if let Ok(mut eng) = eng_arc.try_lock() {
+                            eng.set_plugin_enabled(&plugin_name, en);
+                        }
+                    }
+                }
             }
             if let Some(wd) = wet_dry {
                 slot.wet_dry = wd.clamp(0.0, 1.0);
             }
             if let Some(params) = parameters {
-                for (key, val) in params {
-                    slot.parameters.insert(key, val.clamp(0.0, 1.0));
+                for (key, val) in &params {
+                    slot.parameters.insert(key.clone(), val.clamp(0.0, 1.0));
+                    // Also apply to the running engine
+                    if let Ok(engine_guard) = state.engine.try_lock() {
+                        if let Some(ref eng_arc) = *engine_guard {
+                            if let Ok(mut eng) = eng_arc.try_lock() {
+                                eng.set_parameter_on_plugin(&plugin_name, key, *val);
+                            }
+                        }
+                    }
                 }
             }
             persist_chain(&chain);
@@ -117,6 +148,15 @@ pub fn toggle_slot(state: State<'_, AppState>, slot_id: String) -> Result<bool, 
         Some(idx) => {
             chain.slots[idx].enabled = !chain.slots[idx].enabled;
             let new_state = chain.slots[idx].enabled;
+            let plugin_name = chain.slots[idx].id.clone();
+            // Also apply to the running engine
+            if let Ok(engine_guard) = state.engine.try_lock() {
+                if let Some(ref eng_arc) = *engine_guard {
+                    if let Ok(mut eng) = eng_arc.try_lock() {
+                        eng.set_plugin_enabled(&plugin_name, new_state);
+                    }
+                }
+            }
             persist_chain(&chain);
             Ok(new_state)
         }
