@@ -1066,6 +1066,10 @@ pub struct PluginRegistry {
     /// Used by the frontend for real-time VU-meter visualisation.
     /// Length matches the number of plugins.
     levels: Vec<f32>,
+    /// Pre-allocated working buffers to avoid allocation in the real-time path.
+    /// We use double-buffering: buf_a and buf_b are swapped each plugin iteration.
+    buf_a: Vec<f32>,
+    buf_b: Vec<f32>,
 }
 
 impl Default for PluginRegistry {
@@ -1080,6 +1084,8 @@ impl PluginRegistry {
             plugins: Vec::new(),
             parameters: HashMap::new(),
             levels: Vec::new(),
+            buf_a: Vec::new(),
+            buf_b: Vec::new(),
         }
     }
 
@@ -1109,6 +1115,11 @@ impl PluginRegistry {
         for plugin in &mut self.plugins {
             plugin.init(sample_rate)?;
         }
+        // Pre-allocate working buffers for real-time processing
+        // (max buffer size is typically 2048 samples)
+        let max_buf = 4096;
+        self.buf_a.resize(max_buf, 0.0);
+        self.buf_b.resize(max_buf, 0.0);
         Ok(())
     }
 
@@ -1117,7 +1128,11 @@ impl PluginRegistry {
     /// After each plugin processes, its output RMS level is stored in
     /// `self.levels` for front-end VU-meter visualisation.  The levels
     /// are updated every audio cycle (~5 ms at 256 / 48 kHz).
+    ///
+    /// Uses pre-allocated double buffers to avoid heap allocation in the
+    /// real-time audio callback.
     pub fn process_all(&mut self, input: &[f32], output: &mut [f32]) -> anyhow::Result<()> {
+        let n = input.len();
         if self.plugins.is_empty() {
             output.copy_from_slice(input);
             self.levels.clear();
@@ -1126,14 +1141,40 @@ impl PluginRegistry {
 
         self.levels.resize(self.plugins.len(), 0.0);
 
-        let mut buf = input.to_vec();
-        for (i, plugin) in self.plugins.iter_mut().enumerate() {
-            let mut out = vec![0.0f32; buf.len()];
-            plugin.process(&buf, &mut out)?;
-            self.levels[i] = compute_rms(&out);
-            buf = out;
+        // Ensure working buffers are large enough (resize only grows, never shrinks in RT)
+        if self.buf_a.len() < n {
+            self.buf_a.resize(n, 0.0);
         }
-        output.copy_from_slice(&buf);
+        if self.buf_b.len() < n {
+            self.buf_b.resize(n, 0.0);
+        }
+
+        // Copy input into buf_a
+        self.buf_a[..n].copy_from_slice(input);
+
+        // Alternate between buf_a and buf_b for each plugin to avoid allocation.
+        // read_from_a = true means read from buf_a, write to buf_b.
+        let mut read_from_a = true;
+
+        for (i, plugin) in self.plugins.iter_mut().enumerate() {
+            if read_from_a {
+                plugin.process(&self.buf_a[..n], &mut self.buf_b[..n])?;
+                self.levels[i] = compute_rms(&self.buf_b[..n]);
+            } else {
+                plugin.process(&self.buf_b[..n], &mut self.buf_a[..n])?;
+                self.levels[i] = compute_rms(&self.buf_a[..n]);
+            }
+            read_from_a = !read_from_a;
+        }
+
+        // Copy final result to output
+        if read_from_a {
+            // After even number of plugins, result ended up in buf_a
+            output.copy_from_slice(&self.buf_a[..n]);
+        } else {
+            // After odd number of plugins, result ended up in buf_b
+            output.copy_from_slice(&self.buf_b[..n]);
+        }
         Ok(())
     }
 
