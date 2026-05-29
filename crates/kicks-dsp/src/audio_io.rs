@@ -104,10 +104,28 @@ impl CpalAudioIO {
 
             let host = cpal::default_host();
 
-            let output_device = host
-                .default_output_device()
-                .context("No default audio output device found")?;
-            let input_device = host.default_input_device();
+            let output_device = config
+                .output_device
+                .as_ref()
+                .and_then(|name| {
+                    #[allow(deprecated)]
+                    host.output_devices()
+                        .ok()?
+                        .find(|d| d.name().map(|n| n == *name).unwrap_or(false))
+                })
+                .or_else(|| host.default_output_device())
+                .context("No audio output device found")?;
+
+            let input_device = config
+                .input_device
+                .as_ref()
+                .and_then(|name| {
+                    #[allow(deprecated)]
+                    host.input_devices()
+                        .ok()?
+                        .find(|d| d.name().map(|n| n == *name).unwrap_or(false))
+                })
+                .or_else(|| host.default_input_device());
 
             let sr = config.sample_rate as u32;
             let bs = config.buffer_size;
