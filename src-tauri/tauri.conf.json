@@ -37,7 +37,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "category": "Audio",
+    "category": "Music",
     "linux": {
       "deb": {
         "depends": ["jackd", "libjack-jackd2-0", "pipewire-audio", "libspa-0.2-modules"]

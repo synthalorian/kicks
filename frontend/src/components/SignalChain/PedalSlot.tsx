@@ -86,6 +86,10 @@ function pluginParams(pluginType: string): { id: string; label: string }[] {
         { id: 'mix', label: 'Mix' },
         { id: 'speed', label: 'Speed' },
       ];
+    case 'Output':
+      return [
+        { id: 'volume', label: 'Volume' },
+      ];
     default:
       return [];
   }

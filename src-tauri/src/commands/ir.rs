@@ -160,7 +160,8 @@ pub fn load_ir_to_cab(state: State<'_, AppState>, path: String) -> Result<IrLoad
     }
 
     // Read WAV file and extract float samples
-    let mut reader = hound::WavReader::open(fpath).map_err(|e| format!("Failed to open WAV: {}", e))?;
+    let mut reader =
+        hound::WavReader::open(fpath).map_err(|e| format!("Failed to open WAV: {}", e))?;
     let spec = reader.spec();
 
     let sample_rate = spec.sample_rate as f32;
@@ -171,29 +172,24 @@ pub fn load_ir_to_cab(state: State<'_, AppState>, path: String) -> Result<IrLoad
     let samples: Vec<f32> = match spec.sample_format {
         hound::SampleFormat::Float => {
             // 32-bit float WAV
-            reader.samples::<f32>()
-                .filter_map(|s| s.ok())
-                .collect()
+            reader.samples::<f32>().filter_map(|s| s.ok()).collect()
         }
         hound::SampleFormat::Int => match spec.bits_per_sample {
-            16 => {
-                reader.samples::<i16>()
-                    .filter_map(|s| s.ok())
-                    .map(|s| s as f32 / 32768.0)
-                    .collect()
-            }
-            24 => {
-                reader.samples::<i32>()
-                    .filter_map(|s| s.ok())
-                    .map(|s| s as f32 / 8388608.0)
-                    .collect()
-            }
-            32 => {
-                reader.samples::<i32>()
-                    .filter_map(|s| s.ok())
-                    .map(|s| s as f32 / 2147483648.0)
-                    .collect()
-            }
+            16 => reader
+                .samples::<i16>()
+                .filter_map(|s| s.ok())
+                .map(|s| s as f32 / 32768.0)
+                .collect(),
+            24 => reader
+                .samples::<i32>()
+                .filter_map(|s| s.ok())
+                .map(|s| s as f32 / 8388608.0)
+                .collect(),
+            32 => reader
+                .samples::<i32>()
+                .filter_map(|s| s.ok())
+                .map(|s| s as f32 / 2147483648.0)
+                .collect(),
             _ => return Err(format!("Unsupported bit depth: {}", spec.bits_per_sample)),
         },
     };
@@ -203,9 +199,7 @@ pub fn load_ir_to_cab(state: State<'_, AppState>, path: String) -> Result<IrLoad
         let frame_count = samples.len() / channels;
         (0..frame_count)
             .map(|f| {
-                let sum: f32 = (0..channels)
-                    .map(|ch| samples[f * channels + ch])
-                    .sum();
+                let sum: f32 = (0..channels).map(|ch| samples[f * channels + ch]).sum();
                 sum / channels as f32
             })
             .collect()
@@ -309,7 +303,9 @@ pub fn clear_cab_ir(state: State<'_, AppState>) -> Result<(), String> {
 
 /// Scan for IR files in a specific directory.
 #[tauri::command]
-pub fn scan_ir_directory(state: State<'_, AppState>, dir_path: String) -> Result<Vec<IrFileInfo>, String> {
+pub fn scan_ir_directory(
+    state: State<'_, AppState>, dir_path: String,
+) -> Result<Vec<IrFileInfo>, String> {
     let _config = state.config.lock().map_err(|e| e.to_string())?;
     let mut results = Vec::new();
     let path = PathBuf::from(&dir_path);
@@ -318,7 +314,8 @@ pub fn scan_ir_directory(state: State<'_, AppState>, dir_path: String) -> Result
         return Err(format!("Directory '{}' does not exist", dir_path));
     }
 
-    let entries = std::fs::read_dir(&path).map_err(|e| format!("Failed to read directory: {}", e))?;
+    let entries =
+        std::fs::read_dir(&path).map_err(|e| format!("Failed to read directory: {}", e))?;
 
     for entry in entries.flatten() {
         let fpath = entry.path();

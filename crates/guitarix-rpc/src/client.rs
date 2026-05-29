@@ -1,8 +1,8 @@
+use serde_json::{json, Value};
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
-use serde_json::{json, Value};
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::error::Result;
 
@@ -107,7 +107,13 @@ impl GuitarixClient {
 
     pub async fn parameter_list(&mut self) -> Result<Vec<String>> {
         let v = self.call("parameterlist", json!([])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     pub async fn get_parameter(&mut self, id: &str) -> Result<Value> {
@@ -125,14 +131,26 @@ impl GuitarixClient {
 
     pub async fn list(&mut self, group: &str) -> Result<Vec<String>> {
         let v = self.call("list", json!([group])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     // ── Banks ──
 
     pub async fn banks(&mut self) -> Result<Vec<String>> {
         let v = self.call("banks", json!([])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     pub async fn get_bank(&mut self, index: u32) -> Result<Value> {
@@ -141,11 +159,18 @@ impl GuitarixClient {
 
     pub async fn bank_get_contents(&mut self, index: u32) -> Result<Vec<String>> {
         let v = self.call("bank_get_contents", json!([index])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     pub async fn bank_insert_content(&mut self, index: u32, name: &str) -> Result<()> {
-        self.notify("bank_insert_content", json!([index, name])).await
+        self.notify("bank_insert_content", json!([index, name]))
+            .await
     }
 
     pub async fn bank_insert_new(&mut self, index: u32, name: &str) -> Result<String> {
@@ -154,7 +179,9 @@ impl GuitarixClient {
     }
 
     pub async fn rename_bank(&mut self, old: &str, new: &str) -> Result<String> {
-        self.call("rename_bank", json!([old, new])).await.map(|v| v.as_str().unwrap_or_default().to_string())
+        self.call("rename_bank", json!([old, new]))
+            .await
+            .map(|v| v.as_str().unwrap_or_default().to_string())
     }
 
     pub async fn bank_remove(&mut self, index: u32) -> Result<bool> {
@@ -180,7 +207,9 @@ impl GuitarixClient {
     }
 
     pub async fn convert_preset(&mut self, bank: &str, index: u32) -> Result<String> {
-        self.call("convert_preset", json!([bank, index])).await.map(|v| v.as_str().unwrap_or_default().to_string())
+        self.call("convert_preset", json!([bank, index]))
+            .await
+            .map(|v| v.as_str().unwrap_or_default().to_string())
     }
 
     pub async fn bank_save(&mut self) -> Result<()> {
@@ -203,7 +232,13 @@ impl GuitarixClient {
 
     pub async fn presets(&mut self, bank: &str) -> Result<Vec<String>> {
         let v = self.call("presets", json!([bank])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     pub async fn set_preset(&mut self, bank: &str, index: u32) -> Result<()> {
@@ -211,11 +246,14 @@ impl GuitarixClient {
     }
 
     pub async fn create_default_scratch_preset(&mut self) -> Result<()> {
-        self.notify("create_default_scratch_preset", json!([])).await
+        self.notify("create_default_scratch_preset", json!([]))
+            .await
     }
 
     pub async fn rename_preset(&mut self, bank: &str, index: u32, name: &str) -> Result<String> {
-        self.call("rename_preset", json!([bank, index, name])).await.map(|v| v.as_str().unwrap_or_default().to_string())
+        self.call("rename_preset", json!([bank, index, name]))
+            .await
+            .map(|v| v.as_str().unwrap_or_default().to_string())
     }
 
     pub async fn reorder_preset(&mut self, bank: &str, from: u32, to: u32) -> Result<()> {
@@ -257,14 +295,21 @@ impl GuitarixClient {
     }
 
     pub async fn plugin_preset_list_remove(&mut self, name: &str) -> Result<()> {
-        self.notify("plugin_preset_list_remove", json!([name])).await
+        self.notify("plugin_preset_list_remove", json!([name]))
+            .await
     }
 
     // ── Plugins / Rack ──
 
     pub async fn plugin_list(&mut self) -> Result<Vec<String>> {
         let v = self.call("pluginlist", json!([])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     pub async fn plugin_load_ui(&mut self, name: &str) -> Result<Value> {
@@ -273,12 +318,24 @@ impl GuitarixClient {
 
     pub async fn get_rack_unit_order(&mut self) -> Result<Vec<String>> {
         let v = self.call("get_rack_unit_order", json!([])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     pub async fn get_file_list(&mut self, path: &str) -> Result<Vec<String>> {
         let v = self.call("get_file_list", json!([path])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     pub async fn insert_rack_unit(&mut self, name: &str) -> Result<()> {
@@ -339,7 +396,8 @@ impl GuitarixClient {
     }
 
     pub async fn set_last_midi_control_value(&mut self, value: f32) -> Result<()> {
-        self.notify("set_last_midi_control_value", json!([value])).await
+        self.notify("set_last_midi_control_value", json!([value]))
+            .await
     }
 
     pub async fn get_midi_feedback(&mut self) -> Result<Value> {
@@ -382,12 +440,19 @@ impl GuitarixClient {
     // ── Oscilloscope ──
 
     pub async fn set_oscilloscope_mul_buffer(&mut self, val: u32) -> Result<()> {
-        self.notify("set_oscilloscope_mul_buffer", json!([val])).await
+        self.notify("set_oscilloscope_mul_buffer", json!([val]))
+            .await
     }
 
     pub async fn get_oscilloscope_mul_buffer(&mut self) -> Result<Vec<f32>> {
         let v = self.call("get_oscilloscope_mul_buffer", json!([])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_f64().map(|f| f as f32)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_f64().map(|f| f as f32))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     // ── Convolver ──
@@ -398,7 +463,13 @@ impl GuitarixClient {
 
     pub async fn load_impresp_dirs(&mut self) -> Result<Vec<String>> {
         let v = self.call("load_impresp_dirs", json!([])).await?;
-        Ok(v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default())
+        Ok(v.as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default())
     }
 
     pub async fn read_audio(&mut self, path: &str) -> Result<Value> {
@@ -442,9 +513,9 @@ impl GuitarixClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
-    use serde_json::Value;
 
     /// Helper: spawns a tiny JSON-RPC echo server on localhost.
     /// Returns the port it bound to.

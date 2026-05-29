@@ -64,10 +64,7 @@ pub fn get_settings(state: State<'_, AppState>) -> SettingsPayload {
 /// and the engine is running, the CPAL stream is automatically restarted
 /// with the new settings — no manual stop/start needed.
 #[tauri::command]
-pub fn save_settings(
-    state: State<'_, AppState>,
-    settings: SettingsPayload,
-) -> Result<(), String> {
+pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> Result<(), String> {
     // ── 1. Snapshot old audio config and detect changes ──
     let (old_sr, old_bs, old_dev) = {
         let cfg = state.config.lock().map_err(|e| e.to_string())?;
@@ -121,7 +118,8 @@ pub fn save_settings(
             // Re-init the engine at the new sample rate/buffer size
             {
                 let mut eng = eng_arc.lock().map_err(|e| e.to_string())?;
-                eng.init(sr, bs).map_err(|e| format!("Engine re-init failed: {}", e))?;
+                eng.init(sr, bs)
+                    .map_err(|e| format!("Engine re-init failed: {}", e))?;
             }
 
             // Stop current audio I/O
@@ -138,8 +136,16 @@ pub fn save_settings(
             let audio_config = AudioConfig {
                 sample_rate: sr,
                 buffer_size: bs,
-                output_device: if audio_device.is_empty() { None } else { Some(audio_device.clone()) },
-                input_device: if audio_device.is_empty() { None } else { Some(audio_device) },
+                output_device: if audio_device.is_empty() {
+                    None
+                } else {
+                    Some(audio_device.clone())
+                },
+                input_device: if audio_device.is_empty() {
+                    None
+                } else {
+                    Some(audio_device)
+                },
             };
 
             if let Some(ref mut io) = *audio_io {

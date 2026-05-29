@@ -4,8 +4,8 @@ use kicks_core::signal_chain::SignalChain;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::AppState;
 use super::signal_chain::push_undo_state;
+use crate::AppState;
 
 /// A scene descriptor returned to the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,9 +161,7 @@ pub fn delete_scene(state: State<'_, AppState>, index: usize) -> Result<(), Stri
 /// Rename a scene.
 #[tauri::command]
 pub fn rename_scene(
-    state: State<'_, AppState>,
-    index: usize,
-    new_name: String,
+    state: State<'_, AppState>, index: usize, new_name: String,
 ) -> Result<(), String> {
     let mut scenes = state.scenes.lock().map_err(|e| e.to_string())?;
     scenes
@@ -176,14 +174,15 @@ pub fn rename_scene(
 /// Reorder a scene (move from one index to another).
 #[tauri::command]
 pub fn reorder_scene(
-    state: State<'_, AppState>,
-    from_index: usize,
-    to_index: usize,
+    state: State<'_, AppState>, from_index: usize, to_index: usize,
 ) -> Result<(), String> {
     let mut scenes = state.scenes.lock().map_err(|e| e.to_string())?;
-    scenes
-        .reorder_scene(from_index, to_index)
-        .ok_or_else(|| format!("Failed to reorder scene from {} to {}", from_index, to_index))?;
+    scenes.reorder_scene(from_index, to_index).ok_or_else(|| {
+        format!(
+            "Failed to reorder scene from {} to {}",
+            from_index, to_index
+        )
+    })?;
     persist_scenes(&scenes);
     Ok(())
 }

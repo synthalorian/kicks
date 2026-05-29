@@ -6,25 +6,34 @@ use crate::AppState;
 /// Generate an AI tone preset from a natural language description.
 #[tauri::command]
 pub async fn generate_ai_preset(
-    state: State<'_, AppState>,
-    description: String,
+    state: State<'_, AppState>, description: String,
 ) -> Result<crate::ai::AiPresetResult, String> {
     let (api_key, model, provider, endpoint_url) = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
-        (config.ai_api_key.clone(), config.ai_model.clone(), config.ai_provider.clone(), config.ai_endpoint_url.clone())
+        (
+            config.ai_api_key.clone(),
+            config.ai_model.clone(),
+            config.ai_provider.clone(),
+            config.ai_endpoint_url.clone(),
+        )
     };
 
-    let ai_resp = crate::ai::generate_preset(&description, &api_key, &model, &provider, &endpoint_url).await?;
+    let ai_resp =
+        crate::ai::generate_preset(&description, &api_key, &model, &provider, &endpoint_url)
+            .await?;
 
-    tracing::info!("AI generated preset: '{}' (provider: {:?})", ai_resp.name, provider);
+    tracing::info!(
+        "AI generated preset: '{}' (provider: {:?})",
+        ai_resp.name,
+        provider
+    );
     Ok(crate::ai::AiPresetResult::from(ai_resp))
 }
 
 /// Apply an AI-generated preset to the current signal chain.
 #[tauri::command]
 pub fn apply_ai_preset(
-    state: State<'_, AppState>,
-    signal_chain: AiPresetPayload,
+    state: State<'_, AppState>, signal_chain: AiPresetPayload,
 ) -> Result<(), String> {
     let mut chain = state.signal_chain.lock().map_err(|e| e.to_string())?;
 

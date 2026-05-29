@@ -68,15 +68,15 @@ pub fn build_default_chain(state: State<'_, AppState>) -> Result<(), String> {
     let mut chain = state.signal_chain.lock().map_err(|e| e.to_string())?;
     *chain = SignalChain::default();
     persist_chain(&chain);
-    // Apply default chain to the running engine
-    for slot in &chain.slots.clone() {
-        let plugin_name = slot.id.clone();
-        if let Ok(engine_guard) = state.engine.try_lock() {
-            if let Some(ref eng_arc) = *engine_guard {
-                if let Ok(mut eng) = eng_arc.try_lock() {
-                    eng.set_plugin_enabled(&plugin_name, slot.enabled);
+    // Rebuild the running engine's chain to match the default signal chain
+    if let Ok(engine_guard) = state.engine.try_lock() {
+        if let Some(ref eng_arc) = *engine_guard {
+            if let Ok(mut eng) = eng_arc.try_lock() {
+                eng.build_default_chain();
+                for slot in &chain.slots {
+                    eng.set_plugin_enabled(&slot.id, slot.enabled);
                     for (param_id, value) in &slot.parameters {
-                        eng.set_parameter_on_plugin(&plugin_name, param_id, *value);
+                        eng.set_parameter_on_plugin(&slot.id, param_id, *value);
                     }
                 }
             }
@@ -89,10 +89,7 @@ pub fn build_default_chain(state: State<'_, AppState>) -> Result<(), String> {
 /// Update a plugin slot's parameters in the signal chain.
 #[tauri::command]
 pub fn update_slot(
-    state: State<'_, AppState>,
-    slot_id: String,
-    enabled: Option<bool>,
-    wet_dry: Option<f32>,
+    state: State<'_, AppState>, slot_id: String, enabled: Option<bool>, wet_dry: Option<f32>,
     parameters: Option<std::collections::HashMap<String, f32>>,
 ) -> Result<(), String> {
     push_undo_state(&state);
@@ -194,7 +191,11 @@ pub fn move_slot(state: State<'_, AppState>, from_idx: usize, to_idx: usize) -> 
 
     let removed = chain.slots.remove(from_idx);
     // If moving forward, to_idx shifts by -1 after removal
-    let insert_at = if from_idx < to_idx { to_idx - 1 } else { to_idx };
+    let insert_at = if from_idx < to_idx {
+        to_idx - 1
+    } else {
+        to_idx
+    };
     chain.slots.insert(insert_at, removed);
 
     tracing::info!("Moved slot from index {} to {}", from_idx, to_idx);

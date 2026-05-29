@@ -74,10 +74,7 @@ pub fn list_midi_devices(state: State<'_, AppState>) -> Result<Vec<MidiDeviceInf
     let connected = manager.is_connected();
     Ok(ports
         .into_iter()
-        .map(|name| MidiDeviceInfo {
-            connected,
-            name,
-        })
+        .map(|name| MidiDeviceInfo { connected, name })
         .collect())
 }
 
@@ -91,8 +88,7 @@ pub fn get_midi_config(state: State<'_, AppState>) -> MidiConfigPayload {
 /// Save the MIDI configuration to disk.
 #[tauri::command]
 pub fn save_midi_config(
-    state: State<'_, AppState>,
-    config: MidiConfigPayload,
+    state: State<'_, AppState>, config: MidiConfigPayload,
 ) -> Result<(), String> {
     let mut midi_config = state.midi_config.lock().map_err(|e| e.to_string())?;
 

@@ -51,33 +51,66 @@ impl Default for SignalChain {
                     parameters: std::collections::HashMap::new(),
                 },
                 ChainSlot {
+                    id: "boost".to_string(),
+                    plugin_type: PluginType::Boost,
+                    enabled: true,
+                    wet_dry: 1.0,
+                    parameters: [("gain".into(), 0.75)].into_iter().collect(),
+                },
+                ChainSlot {
                     id: "amp".to_string(),
                     plugin_type: PluginType::Amp,
                     enabled: true,
                     wet_dry: 1.0,
-                    parameters: [("gain".into(), 0.5), ("master".into(), 0.7), ("bass".into(), 0.5), ("mid".into(), 0.5), ("treble".into(), 0.5), ("bass_mode".into(), 0.0)]
-                        .into_iter().collect(),
+                    parameters: [
+                        ("gain".into(), 0.5),
+                        ("master".into(), 0.7),
+                        ("bass".into(), 0.5),
+                        ("mid".into(), 0.5),
+                        ("treble".into(), 0.5),
+                        ("drive".into(), 0.5),
+                    ]
+                    .into_iter()
+                    .collect(),
                 },
                 ChainSlot {
                     id: "cab".to_string(),
                     plugin_type: PluginType::Cab,
                     enabled: true,
                     wet_dry: 1.0,
-                    parameters: std::collections::HashMap::new(),
+                    parameters: [
+                        ("level".into(), 1.0),
+                        ("low_cut".into(), 0.0),
+                        ("high_cut".into(), 0.6),
+                    ]
+                    .into_iter()
+                    .collect(),
                 },
                 ChainSlot {
                     id: "delay".to_string(),
                     plugin_type: PluginType::Delay,
-                    enabled: true,
-                    wet_dry: 1.0,
-                    parameters: [("time".into(), 0.3), ("feedback".into(), 0.4), ("mix".into(), 0.3)].into_iter().collect(),
+                    enabled: false,
+                    wet_dry: 0.3,
+                    parameters: [
+                        ("time".into(), 0.3),
+                        ("feedback".into(), 0.4),
+                        ("mix".into(), 0.3),
+                    ]
+                    .into_iter()
+                    .collect(),
                 },
                 ChainSlot {
                     id: "reverb".to_string(),
                     plugin_type: PluginType::Reverb,
                     enabled: true,
-                    wet_dry: 1.0,
-                    parameters: [("size".into(), 0.5), ("damping".into(), 0.5), ("mix".into(), 0.3)].into_iter().collect(),
+                    wet_dry: 0.3,
+                    parameters: [
+                        ("size".into(), 0.5),
+                        ("damping".into(), 0.5),
+                        ("mix".into(), 0.3),
+                    ]
+                    .into_iter()
+                    .collect(),
                 },
                 ChainSlot {
                     id: "output".to_string(),

@@ -182,7 +182,10 @@ impl Looper {
         if !self.fading {
             return 1.0;
         }
-        if self.mode == LoopMode::Play || self.mode == LoopMode::Overdub || self.mode == LoopMode::Record {
+        if self.mode == LoopMode::Play
+            || self.mode == LoopMode::Overdub
+            || self.mode == LoopMode::Record
+        {
             // Fade in
             let gain = self.fade_pos as f32 / self.fade_samples as f32;
             if self.fade_pos >= self.fade_samples {
@@ -235,7 +238,10 @@ impl Plugin for Looper {
         for (i, &sample) in input.iter().enumerate() {
             // Update fade
             let fade_gain = if self.fading {
-                if self.mode == LoopMode::Play || self.mode == LoopMode::Overdub || self.mode == LoopMode::Record {
+                if self.mode == LoopMode::Play
+                    || self.mode == LoopMode::Overdub
+                    || self.mode == LoopMode::Record
+                {
                     // Fade in
                     self.fade_pos += 1;
                     if self.fade_pos >= self.fade_samples {
@@ -288,7 +294,8 @@ impl Plugin for Looper {
                         } else {
                             1.0
                         };
-                        self.buffer[write_idx] = self.buffer[write_idx] * (1.0 - xfader) + (self.buffer[write_idx] + sample) * xfader;
+                        self.buffer[write_idx] = self.buffer[write_idx] * (1.0 - xfader)
+                            + (self.buffer[write_idx] + sample) * xfader;
                         self.write_pos += 1;
                     }
 
@@ -377,8 +384,12 @@ impl Plugin for Looper {
         }
     }
 
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -406,7 +417,12 @@ mod tests {
 
         // Output should match the recorded input
         for (o, inp) in output2.iter().zip(input.iter()) {
-            assert!((o - inp * 0.5).abs() < 0.01, "Expected ~{}, got {}", inp * 0.5, o);
+            assert!(
+                (o - inp * 0.5).abs() < 0.01,
+                "Expected ~{}, got {}",
+                inp * 0.5,
+                o
+            );
         }
     }
 
@@ -470,6 +486,9 @@ mod tests {
 
         // In reverse, the first output sample should be non-zero (near last input sample)
         // With mix=0.5 and volume=1.0, output should be roughly half the loop value
-        assert!(out2.iter().any(|&v| v > 50.0), "Reverse playback produced no meaningful output");
+        assert!(
+            out2.iter().any(|&v| v > 50.0),
+            "Reverse playback produced no meaningful output"
+        );
     }
 }

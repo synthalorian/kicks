@@ -79,10 +79,10 @@ impl Metronome {
             let t = i as f32 / sample_rate;
             let envelope = (decay * i as f32).exp();
             // Mix of fundamental and higher harmonics for a "clicky" sound
-            let sample = amp * envelope * (
-                (2.0 * std::f32::consts::PI * freq * t).sin() * 0.7 +
-                (2.0 * std::f32::consts::PI * freq * 2.5 * t).sin() * 0.3
-            );
+            let sample = amp
+                * envelope
+                * ((2.0 * std::f32::consts::PI * freq * t).sin() * 0.7
+                    + (2.0 * std::f32::consts::PI * freq * 2.5 * t).sin() * 0.3);
             click.push(sample);
         }
         click
@@ -183,8 +183,12 @@ impl Plugin for Metronome {
         }
     }
 
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────

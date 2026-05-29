@@ -66,9 +66,7 @@ impl Default for KicksConfig {
                 std::env::var("HOME").unwrap_or_default() + "/.config/guitarix/impulses",
                 std::env::var("HOME").unwrap_or_default() + "/IR",
             ],
-            nam_directories: vec![
-                std::env::var("HOME").unwrap_or_default() + "/.nam",
-            ],
+            nam_directories: vec![std::env::var("HOME").unwrap_or_default() + "/.nam"],
             preset_directories: vec![
                 std::env::var("HOME").unwrap_or_default() + "/.config/kicks/presets",
             ],

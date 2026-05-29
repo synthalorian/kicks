@@ -28,7 +28,8 @@ impl MidiManager {
 
     /// List all available MIDI input port names.
     pub fn list_ports() -> Result<Vec<String>, String> {
-        let midi_in = MidiInput::new("Kicks").map_err(|e| format!("Failed to create MidiInput: {}", e))?;
+        let midi_in =
+            MidiInput::new("Kicks").map_err(|e| format!("Failed to create MidiInput: {}", e))?;
         let ports = midi_in.ports();
         let names: Result<Vec<_>, _> = ports.iter().map(|p| midi_in.port_name(p)).collect();
         names.map_err(|e| format!("Failed to get port name: {}", e))
@@ -40,7 +41,8 @@ impl MidiManager {
         // Drop any existing connection first
         self.disconnect();
 
-        let midi_in = MidiInput::new("Kicks").map_err(|e| format!("Failed to create MidiInput: {}", e))?;
+        let midi_in =
+            MidiInput::new("Kicks").map_err(|e| format!("Failed to create MidiInput: {}", e))?;
         let ports = midi_in.ports();
 
         let port: MidiInputPort = ports

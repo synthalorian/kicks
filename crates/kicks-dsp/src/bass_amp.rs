@@ -16,15 +16,22 @@ use crate::plugins::Plugin;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 struct BiquadFilter {
-    b0: f32, b1: f32, b2: f32,
-    a1: f32, a2: f32,
-    x1: f32, x2: f32, y1: f32, y2: f32,
+    b0: f32,
+    b1: f32,
+    b2: f32,
+    a1: f32,
+    a2: f32,
+    x1: f32,
+    x2: f32,
+    y1: f32,
+    y2: f32,
 }
 
 impl BiquadFilter {
     fn process(&mut self, sample: f32) -> f32 {
         let out = self.b0 * sample + self.b1 * self.x1 + self.b2 * self.x2
-                  - self.a1 * self.y1 - self.a2 * self.y2;
+            - self.a1 * self.y1
+            - self.a2 * self.y2;
         self.x2 = self.x1;
         self.x1 = sample;
         self.y2 = self.y1;
@@ -48,9 +55,15 @@ impl BiquadFilter {
         let a2 = (a + 1.0) + (a - 1.0) * cos_w0 - 2.0 * sqrt_2a * alpha;
 
         Self {
-            b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-            a1: a1 / a0, a2: a2 / a0,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
@@ -70,9 +83,15 @@ impl BiquadFilter {
         let a2 = (a + 1.0) - (a - 1.0) * cos_w0 - 2.0 * sqrt_2a * alpha;
 
         Self {
-            b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-            a1: a1 / a0, a2: a2 / a0,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
@@ -91,9 +110,15 @@ impl BiquadFilter {
         let a2 = 1.0 - alpha / a;
 
         Self {
-            b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-            a1: a1 / a0, a2: a2 / a0,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 
@@ -111,9 +136,15 @@ impl BiquadFilter {
         let a2 = 1.0 - alpha;
 
         Self {
-            b0: b0 / a0, b1: b1 / a0, b2: b2 / a0,
-            a1: a1 / a0, a2: a2 / a0,
-            x1: 0.0, x2: 0.0, y1: 0.0, y2: 0.0,
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
         }
     }
 }
@@ -125,10 +156,10 @@ impl BiquadFilter {
 /// A simple feedback-style peak compressor.
 /// Threshold, ratio, attack, release — all real-time safe.
 struct Compressor {
-    threshold: f32,    // dB (negative)
-    ratio: f32,        // e.g. 4.0 = 4:1
-    attack: f32,       // ms
-    release: f32,      // ms
+    threshold: f32, // dB (negative)
+    ratio: f32,     // e.g. 4.0 = 4:1
+    attack: f32,    // ms
+    release: f32,   // ms
     sample_rate: f32,
     /// Envelope follower (linear).
     envelope: f32,
@@ -184,9 +215,11 @@ impl Compressor {
         let input_level = sample.abs();
         // Envelope follower
         if input_level > self.envelope {
-            self.envelope = self.attack_coef * self.envelope + (1.0 - self.attack_coef) * input_level;
+            self.envelope =
+                self.attack_coef * self.envelope + (1.0 - self.attack_coef) * input_level;
         } else {
-            self.envelope = self.release_coef * self.envelope + (1.0 - self.release_coef) * input_level;
+            self.envelope =
+                self.release_coef * self.envelope + (1.0 - self.release_coef) * input_level;
         }
 
         // Convert to dB
@@ -289,8 +322,8 @@ impl BassAmp {
             mid: 0.5,
             treble: 0.4,
             drive: 0.3,
-            comp_threshold: 0.5,   // -20 dB
-            comp_ratio: 0.3,       // ~3:1
+            comp_threshold: 0.5, // -20 dB
+            comp_ratio: 0.3,     // ~3:1
             sub_mix: 0.0,
             sample_rate: 48000.0,
             bass_filter: None,
@@ -351,7 +384,7 @@ impl Plugin for BassAmp {
 
         // Update compressor from parameters
         let threshold_db = -40.0 + self.comp_threshold * 40.0; // 0..1 → -40..0
-        let ratio = 1.0 + self.comp_ratio * 9.0;               // 0..1 → 1..10
+        let ratio = 1.0 + self.comp_ratio * 9.0; // 0..1 → 1..10
         comp.set_threshold(threshold_db);
         comp.set_ratio(ratio);
 
@@ -402,9 +435,18 @@ impl Plugin for BassAmp {
         match id {
             "gain" => self.gain = v,
             "master" => self.master = v,
-            "bass" => { self.bass = v; self.params_dirty = true; }
-            "mid" => { self.mid = v; self.params_dirty = true; }
-            "treble" => { self.treble = v; self.params_dirty = true; }
+            "bass" => {
+                self.bass = v;
+                self.params_dirty = true;
+            }
+            "mid" => {
+                self.mid = v;
+                self.params_dirty = true;
+            }
+            "treble" => {
+                self.treble = v;
+                self.params_dirty = true;
+            }
             "drive" => self.drive = v,
             "comp_threshold" => self.comp_threshold = v,
             "comp_ratio" => self.comp_ratio = v,
@@ -413,8 +455,12 @@ impl Plugin for BassAmp {
         }
     }
 
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -426,7 +472,9 @@ mod tests {
     use super::*;
 
     fn test_buffer(size: usize) -> Vec<f32> {
-        (0..size).map(|i| (i as f32 / size as f32) * 0.5 - 0.25).collect()
+        (0..size)
+            .map(|i| (i as f32 / size as f32) * 0.5 - 0.25)
+            .collect()
     }
 
     #[test]

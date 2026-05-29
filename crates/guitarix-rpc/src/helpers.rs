@@ -88,10 +88,7 @@ pub async fn create_preset(client: &mut GuitarixClient, name: &str) -> Result<()
 
 /// Rename an existing preset.
 pub async fn rename_preset(
-    client: &mut GuitarixClient,
-    bank: &str,
-    index: u32,
-    new_name: &str,
+    client: &mut GuitarixClient, bank: &str, index: u32, new_name: &str,
 ) -> Result<String> {
     client.rename_preset(bank, index, new_name).await
 }
@@ -103,10 +100,7 @@ pub async fn delete_preset(client: &mut GuitarixClient, bank: &str, index: u32) 
 
 /// Reorder a preset within a bank.
 pub async fn reorder_preset(
-    client: &mut GuitarixClient,
-    bank: &str,
-    from: u32,
-    to: u32,
+    client: &mut GuitarixClient, bank: &str, from: u32, to: u32,
 ) -> Result<()> {
     client.reorder_preset(bank, from, to).await
 }

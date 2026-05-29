@@ -88,9 +88,7 @@ impl CpalAudioIO {
     /// the producer side (never locking the engine mutex), `try_lock` in the
     /// callback almost always succeeds.
     pub fn start(
-        &mut self,
-        engine: Arc<Mutex<KicksEngine>>,
-        config: AudioConfig,
+        &mut self, engine: Arc<Mutex<KicksEngine>>, config: AudioConfig,
         #[cfg(feature = "cpal-backend")] param_rx: ringbuf::HeapCons<(String, f32)>,
     ) -> Result<()> {
         #[cfg(feature = "cpal-backend")]
@@ -196,7 +194,7 @@ impl CpalAudioIO {
                         }
                         // If try_lock fails, output_buf stays zero (silence)
 
-        // Duplicate mono output to stereo interleaved
+                        // Duplicate mono output to stereo interleaved
                         for (frame, &mono) in data.chunks_mut(2).zip(output_buf.iter()) {
                             frame[0] = mono;
                             if let Some(right) = frame.get_mut(1) {
@@ -277,12 +275,23 @@ pub fn list_audio_devices() -> Vec<DeviceInfo> {
         let mut devices = Vec::new();
         if let Ok(devs) = host.devices() {
             for dev in devs {
-                let name = dev.description()
+                let name = dev
+                    .description()
                     .map(|d| d.to_string())
                     .unwrap_or_else(|_| String::new());
-                let is_input = dev.supported_input_configs().map(|c| c.count() > 0).unwrap_or(false);
-                let is_output = dev.supported_output_configs().map(|c| c.count() > 0).unwrap_or(false);
-                devices.push(DeviceInfo { name, is_input, is_output });
+                let is_input = dev
+                    .supported_input_configs()
+                    .map(|c| c.count() > 0)
+                    .unwrap_or(false);
+                let is_output = dev
+                    .supported_output_configs()
+                    .map(|c| c.count() > 0)
+                    .unwrap_or(false);
+                devices.push(DeviceInfo {
+                    name,
+                    is_input,
+                    is_output,
+                });
             }
         }
         devices

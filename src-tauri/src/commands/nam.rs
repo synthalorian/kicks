@@ -64,7 +64,9 @@ pub fn list_nam_files(state: State<'_, AppState>) -> Vec<NamFileInfo> {
 
 /// Scan a specific directory for .nam files.
 #[tauri::command]
-pub fn scan_nam_directory(state: State<'_, AppState>, dir_path: String) -> Result<Vec<NamFileInfo>, String> {
+pub fn scan_nam_directory(
+    state: State<'_, AppState>, dir_path: String,
+) -> Result<Vec<NamFileInfo>, String> {
     let _config = state.config.lock().map_err(|e| e.to_string())?;
     let mut results = Vec::new();
     let path = std::path::PathBuf::from(&dir_path);
@@ -73,7 +75,8 @@ pub fn scan_nam_directory(state: State<'_, AppState>, dir_path: String) -> Resul
         return Err(format!("Directory '{}' does not exist", dir_path));
     }
 
-    let entries = std::fs::read_dir(&path).map_err(|e| format!("Failed to read directory: {}", e))?;
+    let entries =
+        std::fs::read_dir(&path).map_err(|e| format!("Failed to read directory: {}", e))?;
 
     for entry in entries.flatten() {
         let fpath = entry.path();
@@ -103,7 +106,9 @@ pub fn scan_nam_directory(state: State<'_, AppState>, dir_path: String) -> Resul
 
 /// Load a NAM model file into the Nam plugin.
 #[tauri::command]
-pub fn load_nam_model(state: State<'_, AppState>, path: String) -> Result<NamModelLoadResult, String> {
+pub fn load_nam_model(
+    state: State<'_, AppState>, path: String,
+) -> Result<NamModelLoadResult, String> {
     let fpath = std::path::Path::new(&path);
     if !fpath.exists() {
         return Err(format!("File not found: {}", path));
@@ -114,8 +119,8 @@ pub fn load_nam_model(state: State<'_, AppState>, path: String) -> Result<NamMod
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    let neural_model =
-        kicks_dsp::NeuralModel::from_file(&path).map_err(|e| format!("Failed to load NAM model: {}", e))?;
+    let neural_model = kicks_dsp::NeuralModel::from_file(&path)
+        .map_err(|e| format!("Failed to load NAM model: {}", e))?;
 
     let architecture = neural_model.architecture().to_string();
     let sample_rate = neural_model.sample_rate();
@@ -123,7 +128,9 @@ pub fn load_nam_model(state: State<'_, AppState>, path: String) -> Result<NamMod
 
     tracing::info!(
         "Loading NAM model: {} (arch: {}, {} Hz)",
-        file_name, architecture, sample_rate
+        file_name,
+        architecture,
+        sample_rate
     );
 
     // Load into Nam plugin via engine

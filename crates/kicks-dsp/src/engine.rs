@@ -45,12 +45,14 @@ impl KicksEngine {
 
     /// Set a parameter on a specific plugin by name.
     pub fn set_parameter_on_plugin(&mut self, plugin_name: &str, id: &str, value: f32) -> bool {
-        self.plugin_registry.set_parameter_on_plugin(plugin_name, id, value)
+        self.plugin_registry
+            .set_parameter_on_plugin(plugin_name, id, value)
     }
 
     /// Enable or disable a plugin by name.
     pub fn set_plugin_enabled(&mut self, plugin_name: &str, enabled: bool) -> bool {
-        self.plugin_registry.set_plugin_enabled(plugin_name, enabled)
+        self.plugin_registry
+            .set_plugin_enabled(plugin_name, enabled)
     }
 
     /// Update only the parameter value cache (HashMap) without iterating plugins.
@@ -68,7 +70,8 @@ impl KicksEngine {
 
     /// Load an impulse response into the Cab plugin.
     pub fn load_ir_to_cab(&mut self, path: String, ir_data: Vec<f32>, ir_sample_rate: f32) -> bool {
-        self.plugin_registry.load_ir_to_cab(path, ir_data, ir_sample_rate)
+        self.plugin_registry
+            .load_ir_to_cab(path, ir_data, ir_sample_rate)
     }
 
     /// Get info about the currently loaded IR in the Cab plugin.
@@ -82,7 +85,9 @@ impl KicksEngine {
     }
 
     /// Load a NAM neural model into the Nam plugin.
-    pub fn load_nam_to_plugin(&mut self, path: String, neural_model: crate::nam::NeuralModel) -> bool {
+    pub fn load_nam_to_plugin(
+        &mut self, path: String, neural_model: crate::nam::NeuralModel,
+    ) -> bool {
         self.plugin_registry.load_nam_to_plugin(path, neural_model)
     }
 

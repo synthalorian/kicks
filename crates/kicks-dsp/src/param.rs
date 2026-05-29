@@ -62,7 +62,12 @@ pub type ParamConsumer = HeapCons<(String, f32)>;
 pub fn param_channel() -> (ParamSender, ParamConsumer) {
     let rb = HeapRb::<(String, f32)>::new(PARAM_QUEUE_CAPACITY);
     let (producer, consumer) = rb.split();
-    (ParamSender { inner: std::sync::Mutex::new(producer) }, consumer)
+    (
+        ParamSender {
+            inner: std::sync::Mutex::new(producer),
+        },
+        consumer,
+    )
 }
 
 #[cfg(test)]
@@ -85,7 +90,9 @@ mod tests {
         let small_capacity = 2;
         let rb = HeapRb::<(String, f32)>::new(small_capacity);
         let (producer, _consumer) = rb.split();
-        let tx = ParamSender { inner: std::sync::Mutex::new(producer) };
+        let tx = ParamSender {
+            inner: std::sync::Mutex::new(producer),
+        };
 
         assert!(tx.send("a".into(), 1.0).is_ok());
         assert!(tx.send("b".into(), 2.0).is_ok());

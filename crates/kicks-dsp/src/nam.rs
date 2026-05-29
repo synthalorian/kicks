@@ -88,7 +88,7 @@ impl<'a> WeightReader<'a> {
 
 /// Simplest NAM architecture: y = w * x + b
 struct LinearModel {
-    weight: Vec<f32>,  // flattened weight matrix
+    weight: Vec<f32>, // flattened weight matrix
     bias: Vec<f32>,
     #[allow(dead_code)]
     input_size: usize,
@@ -98,9 +98,12 @@ struct LinearModel {
 
 impl LinearModel {
     fn from_config(config: &serde_json::Value, weights: &mut WeightReader) -> Self {
-        let _receptive_field = config.get("receptive_field").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+        let _receptive_field = config
+            .get("receptive_field")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1) as usize;
         let bias_enabled = config.get("bias").and_then(|v| v.as_bool()).unwrap_or(true);
-        let input_size = 1;  // NAM models are typically 1-input (mono audio)
+        let input_size = 1; // NAM models are typically 1-input (mono audio)
         let output_size = 1;
         let param_count = input_size * output_size;
 
@@ -116,7 +119,12 @@ impl LinearModel {
             vec![0.0]
         };
 
-        Self { weight, bias, input_size, output_size }
+        Self {
+            weight,
+            bias,
+            input_size,
+            output_size,
+        }
     }
 
     fn process(&self, input: &[f32], output: &mut [f32]) {
@@ -240,7 +248,7 @@ impl WaveNetLayer {
     }
 
     fn activation(&self) -> Activation {
-        Activation::Tanh  // most common for WaveNet
+        Activation::Tanh // most common for WaveNet
     }
 }
 
@@ -272,21 +280,42 @@ struct WaveNetModel {
 impl WaveNetModel {
     fn from_config(config: &serde_json::Value, weights: &mut WeightReader) -> Self {
         // Parse config
-        let channels = config.get("channels").and_then(|v| v.as_u64()).unwrap_or(16) as usize;
-        let kernel_size = config.get("kernel_size").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
-        let dilations: Vec<usize> = config.get("dilations")
+        let channels = config
+            .get("channels")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(16) as usize;
+        let kernel_size = config
+            .get("kernel_size")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(3) as usize;
+        let dilations: Vec<usize> = config
+            .get("dilations")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|d| d.as_u64()).map(|d| d as usize).collect())
-            .unwrap_or_else(|| (0..8).map(|i| 1usize << i).collect());  // default: [1,2,4,8,16,32,64,128]
-        let gated = config.get("gated").and_then(|v| v.as_bool()).unwrap_or(true);
-        let head_size = config.get("head_size").and_then(|v| v.as_u64()).unwrap_or(channels as u64) as usize;
-        let head_bias = config.get("head_bias").and_then(|v| v.as_bool()).unwrap_or(false);
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|d| d.as_u64())
+                    .map(|d| d as usize)
+                    .collect()
+            })
+            .unwrap_or_else(|| (0..8).map(|i| 1usize << i).collect()); // default: [1,2,4,8,16,32,64,128]
+        let gated = config
+            .get("gated")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let head_size = config
+            .get("head_size")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(channels as u64) as usize;
+        let head_bias = config
+            .get("head_bias")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
         let num_layers = dilations.len();
 
         // Read head projection weights
         let head_weight = if head_size > 0 {
-            let n = head_size;  // input_size (1) * head_size
+            let n = head_size; // input_size (1) * head_size
             Some(weights.read(n).to_vec())
         } else {
             None
@@ -332,7 +361,11 @@ impl WaveNetModel {
         let output_weight = weights.read(channels).to_vec();
         let output_bias = vec![weights.read(1).first().copied().unwrap_or(0.0)];
 
-        let head_scale = config.get("head_scale").and_then(|v| v.as_f64()).map(|v| v as f32).unwrap_or(1.0);
+        let head_scale = config
+            .get("head_scale")
+            .and_then(|v| v.as_f64())
+            .map(|v| v as f32)
+            .unwrap_or(1.0);
 
         // Initialize delay lines: one per layer, each sized for (receptive_field + kernel) * channels
         let max_delay = dilations.iter().max().copied().unwrap_or(1) * kernel_size + kernel_size;
@@ -426,9 +459,18 @@ struct LstmModel {
 
 impl LstmModel {
     fn from_config(config: &serde_json::Value, weights: &mut WeightReader) -> Self {
-        let input_size = config.get("input_size").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
-        let hidden_size = config.get("hidden_size").and_then(|v| v.as_u64()).unwrap_or(8) as usize;
-        let num_layers = config.get("num_layers").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+        let input_size = config
+            .get("input_size")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1) as usize;
+        let hidden_size = config
+            .get("hidden_size")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(8) as usize;
+        let num_layers = config
+            .get("num_layers")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1) as usize;
 
         let mut weight_ih = Vec::with_capacity(num_layers);
         let mut weight_hh = Vec::with_capacity(num_layers);
@@ -436,7 +478,11 @@ impl LstmModel {
         let mut bias_hh = Vec::with_capacity(num_layers);
 
         for _ in 0..num_layers {
-            let layer_input = if weight_ih.is_empty() { input_size } else { hidden_size };
+            let layer_input = if weight_ih.is_empty() {
+                input_size
+            } else {
+                hidden_size
+            };
             let w_ih = weights.read(4 * hidden_size * layer_input).to_vec();
             let w_hh = weights.read(4 * hidden_size * hidden_size).to_vec();
             let b_ih = weights.read(4 * hidden_size).to_vec();
@@ -454,7 +500,17 @@ impl LstmModel {
             c.push(vec![0.0; hidden_size]);
         }
 
-        Self { input_size, hidden_size, num_layers, weight_ih, weight_hh, bias_ih, bias_hh, h, c }
+        Self {
+            input_size,
+            hidden_size,
+            num_layers,
+            weight_ih,
+            weight_hh,
+            bias_ih,
+            bias_hh,
+            h,
+            c,
+        }
     }
 
     fn process(&mut self, input: &[f32], output: &mut [f32]) {
@@ -575,9 +631,7 @@ impl NeuralModel {
             "WaveNet" => {
                 NeuralModelInner::WaveNet(WaveNetModel::from_config(&nam.config, &mut reader))
             }
-            "LSTM" => {
-                NeuralModelInner::Lstm(LstmModel::from_config(&nam.config, &mut reader))
-            }
+            "LSTM" => NeuralModelInner::Lstm(LstmModel::from_config(&nam.config, &mut reader)),
             _ => {
                 tracing::warn!(
                     "Unsupported NAM architecture '{}', using passthrough",
@@ -587,7 +641,11 @@ impl NeuralModel {
             }
         };
 
-        Ok(Self { inner, arch_name, sample_rate })
+        Ok(Self {
+            inner,
+            arch_name,
+            sample_rate,
+        })
     }
 
     /// Process one buffer of audio samples through the neural model.
@@ -605,7 +663,7 @@ impl NeuralModel {
     /// Reset all internal state (delay lines, recurrent state) to zero.
     pub fn reset(&mut self) {
         match &mut self.inner {
-            NeuralModelInner::Linear(_) => {}  // stateless
+            NeuralModelInner::Linear(_) => {} // stateless
             NeuralModelInner::WaveNet(m) => m.reset(),
             NeuralModelInner::Lstm(m) => m.reset(),
             NeuralModelInner::Passthrough => {}
@@ -632,7 +690,9 @@ mod tests {
     use super::*;
 
     fn test_buffer(size: usize) -> Vec<f32> {
-        (0..size).map(|i| (i as f32 / size as f32) * 0.5 - 0.25).collect()
+        (0..size)
+            .map(|i| (i as f32 / size as f32) * 0.5 - 0.25)
+            .collect()
     }
 
     #[test]
@@ -642,7 +702,7 @@ mod tests {
             "receptive_field": 1,
             "bias": true
         });
-        let weights = vec![1.0f32, 0.0f32];  // w, b
+        let weights = vec![1.0f32, 0.0f32]; // w, b
         let mut reader = WeightReader::new(&weights);
         let model = LinearModel::from_config(&config, &mut reader);
 
@@ -661,7 +721,7 @@ mod tests {
             "receptive_field": 1,
             "bias": true
         });
-        let weights = vec![2.0f32, 0.0f32];  // w=2, b=0
+        let weights = vec![2.0f32, 0.0f32]; // w=2, b=0
         let mut reader = WeightReader::new(&weights);
         let model = LinearModel::from_config(&config, &mut reader);
 
@@ -688,13 +748,13 @@ mod tests {
         });
         // Weights: head(1), conv(1*1*2=2), conv_bias(1), skip(1), skip_bias(1), output(1), output_bias(1)
         let weights = vec![
-            1.0,  // head weight
-            0.5, 0.3,  // conv weight (1ch, 1ch, k=2)
-            0.0,  // conv bias
-            0.8,  // skip weight (1ch)
-            0.0,  // skip bias
-            1.0,  // output weight (1ch)
-            0.0,  // output bias
+            1.0, // head weight
+            0.5, 0.3, // conv weight (1ch, 1ch, k=2)
+            0.0, // conv bias
+            0.8, // skip weight (1ch)
+            0.0, // skip bias
+            1.0, // output weight (1ch)
+            0.0, // output bias
         ];
         let mut reader = WeightReader::new(&weights);
         let mut model = WaveNetModel::from_config(&config, &mut reader);
@@ -704,7 +764,10 @@ mod tests {
         model.process(&input, &mut output);
 
         // Should produce non-zero output (neural net processed)
-        assert!(output.iter().any(|&x| x != 0.0), "WaveNet should produce output");
+        assert!(
+            output.iter().any(|&x| x != 0.0),
+            "WaveNet should produce output"
+        );
     }
 
     #[test]
@@ -716,10 +779,12 @@ mod tests {
             "num_layers": 1
         });
         // Weights: w_ih(4*1*1=4), w_hh(4*1*1=4), b_ih(4), b_hh(4)
-        let weights = vec![1.0, 1.0, 1.0, 1.0,   // w_ih: i,f,g,o
-                           1.0, 1.0, 1.0, 1.0,   // w_hh
-                           0.0, 0.0, 0.0, 0.0,   // b_ih
-                           0.0, 2.0, 0.0, 0.0];  // b_hh (forget gate bias = 2.0 to prevent vanishing)
+        let weights = vec![
+            1.0, 1.0, 1.0, 1.0, // w_ih: i,f,g,o
+            1.0, 1.0, 1.0, 1.0, // w_hh
+            0.0, 0.0, 0.0, 0.0, // b_ih
+            0.0, 2.0, 0.0, 0.0,
+        ]; // b_hh (forget gate bias = 2.0 to prevent vanishing)
         let mut reader = WeightReader::new(&weights);
         let mut model = LstmModel::from_config(&config, &mut reader);
 
@@ -727,7 +792,10 @@ mod tests {
         let mut output = vec![0.0; 16];
         model.process(&input, &mut output);
 
-        assert!(output.iter().any(|&x| x != 0.0), "LSTM should produce output");
+        assert!(
+            output.iter().any(|&x| x != 0.0),
+            "LSTM should produce output"
+        );
     }
 
     #[test]

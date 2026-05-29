@@ -112,10 +112,7 @@ fn parse_ai_text_response(text: &str) -> Result<AiResponse, String> {
 
 /// Call the Anthropic Messages API.
 async fn call_anthropic(
-    description: &str,
-    api_key: &str,
-    model: &str,
-    endpoint_url: &str,
+    description: &str, api_key: &str, model: &str, endpoint_url: &str,
 ) -> Result<String, String> {
     let client = reqwest::Client::new();
 
@@ -171,10 +168,7 @@ async fn call_anthropic(
 /// Call an OpenAI-compatible chat completions endpoint.
 /// Used by: OpenAI, OpenRouter, Ollama, llama-server, llama-swap, GLM, Kimi, Together, Groq, etc.
 async fn call_openai(
-    description: &str,
-    api_key: &str,
-    model: &str,
-    endpoint_url: &str,
+    description: &str, api_key: &str, model: &str, endpoint_url: &str,
 ) -> Result<String, String> {
     let client = reqwest::Client::new();
 
@@ -245,11 +239,7 @@ async fn call_openai(
 /// Generate an AI tone preset by routing to the configured provider.
 /// Supports Anthropic and OpenAI-compatible API formats.
 pub async fn generate_preset(
-    description: &str,
-    api_key: &str,
-    model: &str,
-    provider: &AiProvider,
-    endpoint_url: &str,
+    description: &str, api_key: &str, model: &str, provider: &AiProvider, endpoint_url: &str,
 ) -> Result<AiResponse, String> {
     let text = match provider {
         AiProvider::Anthropic => {
@@ -258,9 +248,7 @@ pub async fn generate_preset(
             }
             call_anthropic(description, api_key, model, endpoint_url).await?
         }
-        AiProvider::OpenAI => {
-            call_openai(description, api_key, model, endpoint_url).await?
-        }
+        AiProvider::OpenAI => call_openai(description, api_key, model, endpoint_url).await?,
     };
 
     parse_ai_text_response(&text)

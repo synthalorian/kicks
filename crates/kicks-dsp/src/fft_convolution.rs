@@ -7,7 +7,7 @@
 // convolution, making it suitable for long cabinet IRs (up to
 // several seconds at 48 kHz).
 
-use realfft::{RealFftPlanner, RealToComplex, ComplexToReal};
+use realfft::{ComplexToReal, RealFftPlanner, RealToComplex};
 use rustfft::num_complex::Complex;
 
 /// An FFT-based convolver using the overlap-add method.
@@ -104,7 +104,8 @@ impl FftConvolver {
     fn read_delay_block(&self, read_end: usize) -> Vec<f32> {
         let mut block = vec![0.0f32; self.block_size];
         for (i, block_i) in block.iter_mut().enumerate() {
-            let idx = (read_end + self.delay_line.len() - self.block_size + i) % self.delay_line.len();
+            let idx =
+                (read_end + self.delay_line.len() - self.block_size + i) % self.delay_line.len();
             *block_i = self.delay_line[idx];
         }
         block
@@ -130,7 +131,8 @@ impl FftConvolver {
 
         for p in 0..self.num_partitions {
             // Read the input block delayed by p * block_size samples
-            let read_end = (self.delay_write_pos + self.delay_line.len() - p * self.block_size) % self.delay_line.len();
+            let read_end = (self.delay_write_pos + self.delay_line.len() - p * self.block_size)
+                % self.delay_line.len();
             let delayed_block = self.read_delay_block(read_end);
 
             // Zero-pad to fft_size
@@ -143,7 +145,11 @@ impl FftConvolver {
                 .expect("FFT forward failed");
 
             // Multiply with IR partition spectrum
-            for (a, b) in self.input_spectrum.iter_mut().zip(self.ir_partitions[p].iter()) {
+            for (a, b) in self
+                .input_spectrum
+                .iter_mut()
+                .zip(self.ir_partitions[p].iter())
+            {
                 *a *= *b;
             }
 
@@ -159,7 +165,11 @@ impl FftConvolver {
             }
 
             // Accumulate
-            for (acc_i, ifft_i) in acc.iter_mut().zip(self.ifft_output.iter()).take(self.fft_size) {
+            for (acc_i, ifft_i) in acc
+                .iter_mut()
+                .zip(self.ifft_output.iter())
+                .take(self.fft_size)
+            {
                 *acc_i += *ifft_i;
             }
         }
@@ -181,7 +191,11 @@ impl FftConvolver {
         }
         let mut convolved = vec![0.0f32; n];
         self.process(input, &mut convolved);
-        for (out_i, (inp_i, conv_i)) in output.iter_mut().zip(input.iter().zip(convolved.iter())).take(n) {
+        for (out_i, (inp_i, conv_i)) in output
+            .iter_mut()
+            .zip(input.iter().zip(convolved.iter()))
+            .take(n)
+        {
             *out_i = *inp_i * dry + *conv_i * wet;
         }
     }
@@ -277,9 +291,17 @@ mod tests {
         conv.process(&input, &mut output);
 
         // First sample should be close to 1.0
-        assert!((output[0] - 1.0).abs() < 0.01, "First sample wrong: {}", output[0]);
+        assert!(
+            (output[0] - 1.0).abs() < 0.01,
+            "First sample wrong: {}",
+            output[0]
+        );
         // Second sample should be close to 0.5
-        assert!((output[1] - 0.5).abs() < 0.01, "Second sample wrong: {}", output[1]);
+        assert!(
+            (output[1] - 0.5).abs() < 0.01,
+            "Second sample wrong: {}",
+            output[1]
+        );
     }
 
     #[test]

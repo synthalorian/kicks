@@ -69,7 +69,11 @@ impl Convolver {
             for k in 0..ir_len {
                 sum += self.ir[k] * self.delay[read_pos];
                 // Move backwards in the ring buffer
-                read_pos = if read_pos == 0 { ir_len - 1 } else { read_pos - 1 };
+                read_pos = if read_pos == 0 {
+                    ir_len - 1
+                } else {
+                    read_pos - 1
+                };
             }
 
             output[i] = sum;
@@ -97,7 +101,11 @@ impl Convolver {
 
             for k in 0..ir_len {
                 sum += self.ir[k] * self.delay[read_pos];
-                read_pos = if read_pos == 0 { ir_len - 1 } else { read_pos - 1 };
+                read_pos = if read_pos == 0 {
+                    ir_len - 1
+                } else {
+                    read_pos - 1
+                };
             }
 
             output[i] = input[i] * dry + sum * wet;
@@ -183,8 +191,12 @@ mod tests {
         conv.process(&input, &mut output);
 
         for (out, inp) in output.iter().zip(input.iter()) {
-            assert!((out - inp).abs() < 1e-6,
-                "Mismatch: expected {}, got {}", inp, out);
+            assert!(
+                (out - inp).abs() < 1e-6,
+                "Mismatch: expected {}, got {}",
+                inp,
+                out
+            );
         }
     }
 
