@@ -8,7 +8,7 @@ use kicks_core::preset::PresetCollection;
 use kicks_core::scene::SceneCollection;
 use kicks_core::signal_chain::SignalChain;
 use kicks_dsp::param::ParamSender;
-use kicks_dsp::{CpalAudioIO, KicksEngine};
+use kicks_dsp::{CpalAudioIO, JackAudioIO, KicksEngine};
 use tauri::Manager;
 
 mod ai;
@@ -24,6 +24,8 @@ pub struct AppState {
     pub engine: Mutex<Option<Arc<Mutex<KicksEngine>>>>,
     /// The CPAL audio I/O backend (stream handles kept alive here).
     pub audio_io: Mutex<Option<CpalAudioIO>>,
+    /// The JACK audio I/O backend (active when JACK is selected).
+    pub jack_audio_io: Mutex<Option<JackAudioIO>>,
     /// Lock-free parameter channel: main thread pushes, audio callback drains.
     /// Created when the engine starts, cleared when it stops.
     pub param_tx: Mutex<Option<ParamSender>>,
@@ -78,6 +80,7 @@ pub fn run() {
         .manage(AppState {
             engine: Mutex::new(None),
             audio_io: Mutex::new(None),
+            jack_audio_io: Mutex::new(None),
             param_tx: Mutex::new(None),
             signal_chain: Mutex::new(signal_chain),
             presets: Mutex::new(presets),

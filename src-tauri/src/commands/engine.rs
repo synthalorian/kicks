@@ -1,9 +1,10 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+use kicks_core::config::AudioBackend;
 use kicks_core::signal_chain::PluginType;
 use kicks_dsp::param::param_channel;
-use kicks_dsp::{AudioConfig, AudioEngine, CpalAudioIO, KicksEngine};
+use kicks_dsp::{AudioConfig, AudioEngine, CpalAudioIO, JackAudioIO, KicksEngine};
 use serde::Serialize;
 use tauri::State;
 
@@ -15,6 +16,7 @@ pub struct EngineStatus {
     pub running: bool,
     pub sample_rate: f64,
     pub buffer_size: u32,
+    pub backend: String,
 }
 
 /// Helper to read a WAV file and load it into the engine's Cab plugin.
@@ -88,7 +90,7 @@ fn load_ir_from_file(path: &str, eng: &mut KicksEngine) -> Result<super::ir::IrL
     })
 }
 
-/// Start the internal audio engine with CPAL audio I/O.
+/// Start the internal audio engine with the selected audio backend.
 #[tauri::command]
 pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
@@ -102,6 +104,10 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
     let sample_rate = config.sample_rate as f64;
     let buffer_size = config.buffer_size;
     let audio_device = config.audio_device.clone();
+    let input_device = config.input_device.clone();
+    let output_device = config.output_device.clone();
+    let audio_backend = config.audio_backend.clone();
+    let jack_client_name = config.jack_client_name.clone();
     drop(config);
 
     let eng = Arc::new(Mutex::new(KicksEngine::new()));
@@ -164,59 +170,96 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
     *engine_guard = Some(eng);
     drop(engine_guard);
 
-    // Create lock-free parameter channel
-    // The main thread pushes changes via param_tx; the audio callback
-    // drains them via param_rx before each process cycle.
-    let (param_tx, param_rx) = param_channel();
-    *state.param_tx.lock().map_err(|e| e.to_string())? = Some(param_tx);
+    match audio_backend {
+        AudioBackend::Jack => {
+            // ── JACK backend ──
+            let mut jack_io = state.jack_audio_io.lock().map_err(|e| e.to_string())?;
+            if jack_io.is_none() {
+                *jack_io = Some(JackAudioIO::new(kicks_dsp::JackConfig {
+                    client_name: if jack_client_name.is_empty() {
+                        "Kicks".to_string()
+                    } else {
+                        jack_client_name
+                    },
+                }));
+            }
+            if let Some(ref mut io) = *jack_io {
+                let cpu_load = Arc::clone(&state.cpu_load);
+                io.start(eng_for_io, Some(cpu_load))
+                    .map_err(|e| format!("Failed to start JACK audio: {}", e))?;
+            }
+            tracing::info!("Audio engine started with JACK I/O");
+        }
+        AudioBackend::Cpal => {
+            // ── CPAL backend ──
+            // Create lock-free parameter channel
+            let (param_tx, param_rx) = param_channel();
+            *state.param_tx.lock().map_err(|e| e.to_string())? = Some(param_tx);
 
-    // Start CPAL audio I/O
-    let audio_config = AudioConfig {
-        sample_rate,
-        buffer_size,
-        output_device: if audio_device.is_empty() {
-            None
-        } else {
-            Some(audio_device.clone())
-        },
-        input_device: if audio_device.is_empty() {
-            None
-        } else {
-            Some(audio_device)
-        },
-    };
+            let audio_config = AudioConfig {
+                sample_rate,
+                buffer_size,
+                output_device: if output_device.is_empty() {
+                    if audio_device.is_empty() {
+                        None
+                    } else {
+                        Some(audio_device.clone())
+                    }
+                } else {
+                    Some(output_device.clone())
+                },
+                input_device: if input_device.is_empty() {
+                    if audio_device.is_empty() {
+                        None
+                    } else {
+                        Some(audio_device)
+                    }
+                } else {
+                    Some(input_device)
+                },
+            };
 
-    let mut audio_io = state.audio_io.lock().map_err(|e| e.to_string())?;
-    if audio_io.is_none() {
-        *audio_io = Some(CpalAudioIO::new());
+            let mut audio_io = state.audio_io.lock().map_err(|e| e.to_string())?;
+            if audio_io.is_none() {
+                *audio_io = Some(CpalAudioIO::new());
+            }
+            if let Some(ref mut io) = *audio_io {
+                let cpu_load = Arc::clone(&state.cpu_load);
+                io.start(eng_for_io, audio_config, param_rx, Some(cpu_load))
+                    .map_err(|e| format!("Failed to start CPAL audio: {}", e))?;
+            }
+            tracing::info!(
+                "Audio engine started with CPAL I/O ({} Hz, buffer {})",
+                sample_rate,
+                buffer_size
+            );
+        }
     }
-    if let Some(ref mut io) = *audio_io {
-        let cpu_load = Arc::clone(&state.cpu_load);
-        io.start(eng_for_io, audio_config, param_rx, Some(cpu_load))
-            .map_err(|e| format!("Failed to start audio I/O: {}", e))?;
-    }
 
-    tracing::info!(
-        "Audio engine started with CPAL I/O ({} Hz, buffer {})",
-        sample_rate,
-        buffer_size
-    );
     Ok(())
 }
 
-/// Stop the audio engine and CPAL I/O.
+/// Stop the audio engine and all I/O backends.
 #[tauri::command]
 pub fn stop_engine(state: State<'_, AppState>) -> Result<(), String> {
     // Clear the parameter channel first (no more pushes from main thread)
     *state.param_tx.lock().map_err(|e| e.to_string())? = None;
 
-    // Stop audio I/O first (doesn't lock engine — audio callback uses try_lock)
+    // Stop CPAL audio I/O
     let mut audio_io = state.audio_io.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut io) = *audio_io {
         io.stop();
     }
     *audio_io = None;
     drop(audio_io);
+
+    // Stop JACK audio I/O
+    let mut jack_io = state.jack_audio_io.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut io) = *jack_io {
+        io.stop();
+    }
+    *jack_io = None;
+    drop(jack_io);
 
     // Clear engine
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
@@ -233,21 +276,27 @@ pub fn engine_status(state: State<'_, AppState>) -> EngineStatus {
     match engine_guard {
         Ok(guard) if guard.is_some() => {
             // Try to get actual config values; fall back to defaults if locked
-            let (sr, bs) = if let Ok(cfg) = state.config.try_lock() {
-                (cfg.sample_rate as f64, cfg.buffer_size)
+            let (sr, bs, backend) = if let Ok(cfg) = state.config.try_lock() {
+                (
+                    cfg.sample_rate as f64,
+                    cfg.buffer_size,
+                    format!("{:?}", cfg.audio_backend),
+                )
             } else {
-                (48000.0, 256)
+                (48000.0, 256, "Unknown".to_string())
             };
             EngineStatus {
                 running: true,
                 sample_rate: sr,
                 buffer_size: bs,
+                backend,
             }
         }
         _ => EngineStatus {
             running: false,
             sample_rate: 0.0,
             buffer_size: 0,
+            backend: "None".to_string(),
         },
     }
 }
@@ -281,15 +330,16 @@ pub fn set_parameter(state: State<'_, AppState>, id: String, value: f32) -> Resu
     if let Some(ref tx) = *tx_guard {
         tx.send(id.clone(), value)
             .map_err(|_| "Parameter queue full".to_string())?;
-    } else {
-        return Err("Engine not running".to_string());
     }
+    // JACK backend doesn't use the param channel — parameter changes
+    // are applied directly via try_lock below.
     drop(tx_guard);
 
     // 2. Opportunistically sync the engine's parameter HashMap so
     //    `get_parameter` returns the latest value immediately.
     //    Uses `try_lock` — if the engine lock is contended, the value
-    //    is still guaranteed to arrive via the SPSC queue drain.
+    //    is still guaranteed to arrive via the SPSC queue drain (CPAL)
+    //    or the next process cycle (JACK).
     if let Ok(engine_guard) = state.engine.try_lock() {
         if let Some(ref eng_arc) = *engine_guard {
             if let Ok(mut eng) = eng_arc.try_lock() {

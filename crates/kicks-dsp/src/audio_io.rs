@@ -1,8 +1,8 @@
 // Kicks — Audio I/O Backend
 //
-// Abstracts real-time audio I/O behind an optional CPAL (default) or JACK backend.
-// CPAL gives us cross-platform audio (ALSA/PipeWire on Linux, CoreAudio on macOS,
-// WASAPI on Windows). JACK remains as a feature-gated alternative.
+// Abstracts real-time audio I/O behind CPAL (cross-platform) or JACK
+// (pro-audio, Linux/PipeWire). JACK is the recommended backend for
+// guitar work because it exposes named ports in qpwgraph / Catia.
 //
 // Real-time safety:
 //   - Parameter changes are sent via a lock-free SPSC ring buffer so the main
@@ -21,7 +21,7 @@ use crate::engine::{AudioEngine, KicksEngine};
 // AudioConfig
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// Configuration for audio I/O.
+/// Configuration for CPAL audio I/O.
 #[derive(Debug, Clone)]
 pub struct AudioConfig {
     /// Sample rate in Hz (default: 48000).
@@ -316,27 +316,102 @@ pub fn list_audio_devices() -> Vec<DeviceInfo> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// JackAudioIO — JACK backend (feature-gated alternative)
+// JackAudioIO — JACK backend (feature-gated)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Configuration for JACK audio I/O.
 #[derive(Debug, Clone)]
 pub struct JackConfig {
     pub client_name: String,
-    pub input_ports: Vec<String>,
-    pub output_ports: Vec<String>,
 }
 
-/// A JACK audio I/O client.
-/// When the `jack-backend` feature is enabled, this provides a real JACK client.
-/// Otherwise, it acts as a no-op stub.
+impl Default for JackConfig {
+    fn default() -> Self {
+        Self {
+            client_name: "Kicks".to_string(),
+        }
+    }
+}
+
+/// Custom ProcessHandler for Kicks JACK backend.
+/// Holds the engine Arc, CPU load atomic, and port references so the process
+/// callback can read/write audio buffers.
+#[cfg(feature = "jack-backend")]
+pub struct JackProcessHandler {
+    engine: Arc<Mutex<KicksEngine>>,
+    cpu_load: Option<Arc<std::sync::atomic::AtomicU64>>,
+    sample_rate: f64,
+    in_l: jack::Port<jack::AudioIn>,
+    in_r: jack::Port<jack::AudioIn>,
+    out_l: jack::Port<jack::AudioOut>,
+    out_r: jack::Port<jack::AudioOut>,
+}
+
+#[cfg(feature = "jack-backend")]
+impl jack::ProcessHandler for JackProcessHandler {
+    fn process(&mut self, _client: &jack::Client, ps: &jack::ProcessScope,
+    ) -> jack::Control {
+        let start = std::time::Instant::now();
+
+        let in_l_buf = self.in_l.as_slice(ps);
+        let in_r_buf = self.in_r.as_slice(ps);
+        let out_l_buf = self.out_l.as_mut_slice(ps);
+        let out_r_buf = self.out_r.as_mut_slice(ps);
+
+        let n = ps.n_frames() as usize;
+
+        // Mix stereo input to mono for the engine (KicksEngine is mono)
+        let mut mono_in = vec![0.0f32; n];
+        for i in 0..n {
+            mono_in[i] = (in_l_buf[i] + in_r_buf[i]) * 0.5;
+        }
+
+        let mut mono_out = vec![0.0f32; n];
+
+        if let Ok(mut eng) = self.engine.try_lock() {
+            let _ = eng.process(&mono_in, &mut mono_out);
+        }
+
+        // Copy mono output to both stereo channels
+        out_l_buf[..n].copy_from_slice(&mono_out[..n]);
+        out_r_buf[..n].copy_from_slice(&mono_out[..n]);
+
+        // CPU load tracking
+        let elapsed = start.elapsed().as_secs_f64();
+        let budget = n as f64 / self.sample_rate;
+        let pct = ((elapsed / budget) * 1000.0).min(100_000.0) as u64;
+        if let Some(ref atomic) = self.cpu_load {
+            atomic.store(pct, std::sync::atomic::Ordering::Relaxed);
+        }
+
+        jack::Control::Continue
+    }
+}
+
+/// A real JACK audio client.
+///
+/// Registers stereo input ports (`in_l`, `in_r`) and stereo output ports
+/// (`out_l`, `out_r`) so the app appears as "Kicks" in qpwgraph / Catia.
+/// The process callback runs the DSP engine on every JACK cycle.
+///
+/// Usage:
+/// ```ignore
+/// let mut jack = JackAudioIO::new(JackConfig::default());
+/// jack.start(engine, cpu_load)?;
+/// // ... app runs ...
+/// jack.stop()?;
+/// ```
 pub struct JackAudioIO {
     #[cfg(feature = "jack-backend")]
-    client: Option<jack::Client>,
+    active_client: Option<jack::AsyncClient<(), JackProcessHandler>>,
     #[cfg(feature = "jack-backend")]
-    input_port: Option<jack::Port<jack::AudioIn>>,
+    _input_l: Option<jack::Port<jack::AudioIn>>,
     #[cfg(feature = "jack-backend")]
-    output_port: Option<jack::Port<jack::AudioOut>>,
+    _input_r: Option<jack::Port<jack::AudioIn>>,
+    #[cfg(feature = "jack-backend")]
+    _output_l: Option<jack::Port<jack::AudioOut>>,
+    #[cfg(feature = "jack-backend")]
+    _output_r: Option<jack::Port<jack::AudioOut>>,
 
     config: JackConfig,
     active: bool,
@@ -346,65 +421,124 @@ impl JackAudioIO {
     pub fn new(config: JackConfig) -> Self {
         Self {
             #[cfg(feature = "jack-backend")]
-            client: None,
+            active_client: None,
             #[cfg(feature = "jack-backend")]
-            input_port: None,
+            _input_l: None,
             #[cfg(feature = "jack-backend")]
-            output_port: None,
+            _input_r: None,
+            #[cfg(feature = "jack-backend")]
+            _output_l: None,
+            #[cfg(feature = "jack-backend")]
+            _output_r: None,
             config,
             active: false,
         }
     }
 
-    #[must_use]
-    pub fn with_config(config: JackConfig) -> Self {
-        Self::new(config)
-    }
-
-    /// Open JACK client and register ports.
-    pub fn open(&mut self) -> Result<()> {
+    /// Start the JACK client: register ports, activate, and begin processing.
+    ///
+    /// `engine` is the DSP engine shared with the process thread.
+    /// `cpu_load` is an optional atomic for monitoring DSP load.
+    pub fn start(
+        &mut self,
+        engine: Arc<Mutex<KicksEngine>>,
+        cpu_load: Option<Arc<std::sync::atomic::AtomicU64>>,
+    ) -> Result<()> {
         #[cfg(feature = "jack-backend")]
         {
-            let (client, _) = jack::Client::new(
+            self.stop();
+
+            let (client, _status) = jack::Client::new(
                 &self.config.client_name,
                 jack::ClientOptions::NO_START_SERVER,
-            )?;
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to create JACK client: {:?}", e))?;
 
-            let input = client.register_port("input", jack::AudioIn)?;
-            let output = client.register_port("output", jack::AudioOut)?;
+            let sample_rate = client.sample_rate() as f64;
+            let buffer_size = client.buffer_size();
 
-            self.client = Some(client);
-            self.input_port = Some(input);
-            self.output_port = Some(output);
+            // Register stereo input ports
+            let in_l = client
+                .register_port("in_l", jack::AudioIn)
+                .context("Failed to register JACK input port in_l")?;
+            let in_r = client
+                .register_port("in_r", jack::AudioIn)
+                .context("Failed to register JACK input port in_r")?;
+
+            // Register stereo output ports
+            let out_l = client
+                .register_port("out_l", jack::AudioOut)
+                .context("Failed to register JACK output port out_l")?;
+            let out_r = client
+                .register_port("out_r", jack::AudioOut)
+                .context("Failed to register JACK output port out_r")?;
+
+            // Initialize engine at JACK's sample rate / buffer size
+            {
+                let mut eng = engine.lock().map_err(|e| anyhow::anyhow!("{}", e))?;
+                eng.init(sample_rate, buffer_size)
+                    .map_err(|e| anyhow::anyhow!("Engine init failed: {}", e))?;
+            }
+
+            let eng_process = engine.clone();
+
+            let process = JackProcessHandler {
+                engine: eng_process,
+                cpu_load,
+                sample_rate,
+                in_l,
+                in_r,
+                out_l,
+                out_r,
+            };
+
+            let active_client = client
+                .activate_async((), process)
+                .map_err(|e| anyhow::anyhow!("Failed to activate JACK client: {:?}", e))?;
+
+            self.active_client = Some(active_client);
+            // Ports are owned by the JackProcessHandler inside AsyncClient now.
+            // We don't store them separately.
             self.active = true;
 
             tracing::info!(
-                "JACK client '{}' opened successfully",
-                self.config.client_name
+                "JACK client '{}' active: {} Hz, {} frames, ports: in_l, in_r, out_l, out_r",
+                self.config.client_name,
+                sample_rate,
+                buffer_size
             );
         }
 
         #[cfg(not(feature = "jack-backend"))]
         {
+            let _ = (engine, cpu_load);
             tracing::warn!("JACK backend not compiled in; audio I/O disabled");
-            self.active = false;
         }
 
         Ok(())
+    }
+
+    /// Stop the JACK client by deactivating and dropping it.
+    pub fn stop(&mut self) {
+        #[cfg(feature = "jack-backend")]
+        {
+            if let Some(client) = self.active_client.take() {
+                let _ = client.deactivate();
+                tracing::info!("JACK client '{}' deactivated", self.config.client_name);
+            }
+            self._input_l = None;
+            self._input_r = None;
+            self._output_l = None;
+            self._output_r = None;
+        }
+        self.active = false;
     }
 
     pub fn is_active(&self) -> bool {
         self.active
     }
 
-    /// Close the JACK client.
-    pub fn close(&mut self) -> Result<()> {
-        #[cfg(feature = "jack-backend")]
-        if let Some(client) = self.client.take() {
-            drop(client);
-            tracing::info!("JACK client closed");
-        }
-        self.active = false;
-        Ok(())
+    pub fn config(&self) -> &JackConfig {
+        &self.config
     }
 }
