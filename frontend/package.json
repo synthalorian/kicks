@@ -1,7 +1,14 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Kicks Guitar Workstation — React frontend for the Tauri desktop app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/synthalorian/kicks.git",
+    "directory": "frontend"
+  },
+  "author": "synthalorian",
   "type": "module",
   "scripts": {
     "dev": "vite",
