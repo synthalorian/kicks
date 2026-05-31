@@ -21,7 +21,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 thiserror = "2"
-jack = "0.9"
+jack = "0.13"
 fundsp = "0.20"
 log = "0.4"
 hound = "3.5"
