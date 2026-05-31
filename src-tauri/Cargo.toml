@@ -4,7 +4,8 @@ version.workspace = true
 description = "Kicks Guitar Workstation — open-source guitar amp sim and effects suite"
 authors = ["Kicks Contributors"]
 license.workspace = true
-repository = "https://github.com/kicks/guitar-workstation"
+repository = "https://github.com/synthalorian/kicks"
+homepage = "https://github.com/synthalorian/kicks"
 edition = "2021"
 rust-version = "1.77.2"
 

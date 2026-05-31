@@ -7,6 +7,21 @@ all-features = true
 [advisories]
 version = 2
 yanked = "warn"
+ignore = [
+    # gtk-rs GTK3 bindings are unmaintained but still widely used by Tauri on Linux
+    "RUSTSEC-2024-0411", "RUSTSEC-2024-0412", "RUSTSEC-2024-0413",
+    "RUSTSEC-2024-0414", "RUSTSEC-2024-0415", "RUSTSEC-2024-0416",
+    "RUSTSEC-2024-0417", "RUSTSEC-2024-0418", "RUSTSEC-2024-0419",
+    "RUSTSEC-2024-0420",
+    # proc-macro-error is unmaintained but pulled in by gtk3-macros
+    "RUSTSEC-2024-0370",
+    # dlopen_derive is unmaintained but pulled in by midir (MIDI library)
+    "RUSTSEC-2023-0051",
+    # unic-* crates are unmaintained but pulled in by urlpattern (Tauri dependency)
+    "RUSTSEC-2025-0080", "RUSTSEC-2025-0081", "RUSTSEC-2025-0098",
+    # Other Tauri transitive dependency advisories we can't directly fix
+    "RUSTSEC-2025-0075", "RUSTSEC-2025-0100",
+]
 
 [licenses]
 version = 2
@@ -14,13 +29,18 @@ version = 2
 allow = [
     "MIT",
     "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
     "BSD-3-Clause",
     "ISC",
     "Unicode-DFS-2016",
+    "Unicode-3.0",
     "MPL-2.0",
     "OpenSSL",
     "Zlib",
     "BSL-1.0",
+    "GPL-3.0",
+    "GPL-3.0-or-later",
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.8
 
