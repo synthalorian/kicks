@@ -35,8 +35,12 @@ pub struct KicksConfig {
     pub buffer_size: u32,
     /// Empty string = use system default device.
     pub audio_device: String,
+    /// Separate input/output device selection (replaces single audio_device).
+    pub input_device: String,
+    pub output_device: String,
 
-    /// Directories to scan for IRs, NAM captures, and presets.
+    /// Audio backend selection.
+    pub audio_backend: AudioBackend,
     pub ir_directories: Vec<String>,
     pub nam_directories: Vec<String>,
     pub preset_directories: Vec<String>,
@@ -62,6 +66,9 @@ impl Default for KicksConfig {
             sample_rate: 48000,
             buffer_size: 256,
             audio_device: String::new(),
+            input_device: String::new(),
+            output_device: String::new(),
+            audio_backend: AudioBackend::default(),
             ir_directories: vec![
                 std::env::var("HOME").unwrap_or_default() + "/.config/guitarix/impulses",
                 std::env::var("HOME").unwrap_or_default() + "/IR",
@@ -84,4 +91,11 @@ pub enum EngineMode {
     Guitarix,
     Internal,
     Auto,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum AudioBackend {
+    #[default]
+    Cpal,
+    Jack,
 }

@@ -1,4 +1,4 @@
-use kicks_core::config::{AiProvider, EngineMode, KicksConfig};
+use kicks_core::config::{AiProvider, AudioBackend, EngineMode, KicksConfig};
 use kicks_dsp::param::param_channel;
 use kicks_dsp::{AudioConfig, AudioEngine};
 use serde::{Deserialize, Serialize};
@@ -15,10 +15,15 @@ pub struct SettingsPayload {
     pub engine_mode: String,
     pub jack_client_name: String,
 
+    // Audio backend
+    pub audio_backend: String,
+
     // CPAL audio device settings
     pub sample_rate: u32,
     pub buffer_size: u32,
     pub audio_device: String,
+    pub input_device: String,
+    pub output_device: String,
 
     pub ir_directories: Vec<String>,
     pub nam_directories: Vec<String>,
@@ -38,9 +43,12 @@ impl From<&KicksConfig> for SettingsPayload {
             guitarix_port: cfg.guitarix_port,
             engine_mode: format!("{:?}", cfg.active_engine),
             jack_client_name: cfg.jack_client_name.clone(),
+            audio_backend: format!("{:?}", cfg.audio_backend),
             sample_rate: cfg.sample_rate,
             buffer_size: cfg.buffer_size,
             audio_device: cfg.audio_device.clone(),
+            input_device: cfg.input_device.clone(),
+            output_device: cfg.output_device.clone(),
             ir_directories: cfg.ir_directories.clone(),
             nam_directories: cfg.nam_directories.clone(),
             preset_directories: cfg.preset_directories.clone(),
@@ -61,19 +69,33 @@ pub fn get_settings(state: State<'_, AppState>) -> SettingsPayload {
 
 /// Update and persist application settings.
 ///
-/// When audio configuration changes (sample rate, buffer size, or device)
-/// and the engine is running, the CPAL stream is automatically restarted
+/// When audio configuration changes (sample rate, buffer size, device, or backend)
+/// and the engine is running, the audio stream is automatically restarted
 /// with the new settings — no manual stop/start needed.
 #[tauri::command]
 pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> Result<(), String> {
     // ── 1. Snapshot old audio config and detect changes ──
-    let (old_sr, old_bs, old_dev) = {
+    let (old_sr, old_bs, old_dev, old_in, old_out, old_backend) = {
         let cfg = state.config.lock().map_err(|e| e.to_string())?;
-        (cfg.sample_rate, cfg.buffer_size, cfg.audio_device.clone())
+        (
+            cfg.sample_rate,
+            cfg.buffer_size,
+            cfg.audio_device.clone(),
+            cfg.input_device.clone(),
+            cfg.output_device.clone(),
+            cfg.audio_backend.clone(),
+        )
+    };
+    let new_backend = match settings.audio_backend.as_str() {
+        "Jack" => AudioBackend::Jack,
+        _ => AudioBackend::Cpal,
     };
     let audio_changed = old_sr != settings.sample_rate
         || old_bs != settings.buffer_size
-        || old_dev != settings.audio_device;
+        || old_dev != settings.audio_device
+        || old_in != settings.input_device
+        || old_out != settings.output_device
+        || old_backend != new_backend;
 
     // ── 2. Apply all changes to the in-memory config ──
     {
@@ -83,9 +105,12 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
         config.guitarix_port = settings.guitarix_port;
         config.jack_client_name = settings.jack_client_name;
 
+        config.audio_backend = new_backend;
         config.sample_rate = settings.sample_rate;
         config.buffer_size = settings.buffer_size;
         config.audio_device = settings.audio_device.clone();
+        config.input_device = settings.input_device.clone();
+        config.output_device = settings.output_device.clone();
 
         config.ir_directories = settings.ir_directories;
         config.nam_directories = settings.nam_directories;
@@ -115,6 +140,12 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
             let sr = settings.sample_rate as f64;
             let bs = settings.buffer_size;
             let audio_device = settings.audio_device.clone();
+            let input_device = settings.input_device.clone();
+            let output_device = settings.output_device.clone();
+            let backend = match settings.audio_backend.as_str() {
+                "Jack" => AudioBackend::Jack,
+                _ => AudioBackend::Cpal,
+            };
 
             // Re-init the engine at the new sample rate/buffer size
             {
@@ -128,37 +159,80 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
             if let Some(ref mut io) = *audio_io {
                 io.stop();
             }
+            *audio_io = None;
+            drop(audio_io);
 
-            // Create fresh lock-free param channel for the new stream
-            let (param_tx, param_rx) = param_channel();
-            *state.param_tx.lock().map_err(|e| e.to_string())? = Some(param_tx);
+            let mut jack_io = state.jack_audio_io.lock().map_err(|e| e.to_string())?;
+            if let Some(ref mut io) = *jack_io {
+                io.stop();
+            }
+            *jack_io = None;
+            drop(jack_io);
 
-            // Restart CPAL stream with new config
-            let audio_config = AudioConfig {
-                sample_rate: sr,
-                buffer_size: bs,
-                output_device: if audio_device.is_empty() {
-                    None
-                } else {
-                    Some(audio_device.clone())
-                },
-                input_device: if audio_device.is_empty() {
-                    None
-                } else {
-                    Some(audio_device)
-                },
-            };
+            match backend {
+                AudioBackend::Jack => {
+                    let jack_client_name = {
+                        let cfg = state.config.lock().map_err(|e| e.to_string())?;
+                        cfg.jack_client_name.clone()
+                    };
+                    let mut jack_io = state.jack_audio_io.lock().map_err(|e| e.to_string())?;
+                    *jack_io = Some(kicks_dsp::JackAudioIO::new(kicks_dsp::JackConfig {
+                        client_name: if jack_client_name.is_empty() {
+                            "Kicks".to_string()
+                        } else {
+                            jack_client_name
+                        },
+                    }));
+                    if let Some(ref mut io) = *jack_io {
+                        let cpu_load = Arc::clone(&state.cpu_load);
+                        io.start(eng_arc.clone(), Some(cpu_load))
+                            .map_err(|e| format!("Failed to restart JACK: {}", e))?;
+                    }
+                }
+                AudioBackend::Cpal => {
+                    // Create fresh lock-free param channel for the new stream
+                    let (param_tx, param_rx) = param_channel();
+                    *state.param_tx.lock().map_err(|e| e.to_string())? = Some(param_tx);
 
-            if let Some(ref mut io) = *audio_io {
-                let cpu_load = Arc::clone(&state.cpu_load);
-                io.start(eng_arc.clone(), audio_config, param_rx, Some(cpu_load))
-                    .map_err(|e| format!("Failed to restart audio I/O: {}", e))?;
+                    // Restart CPAL stream with new config
+                    let audio_config = AudioConfig {
+                        sample_rate: sr,
+                        buffer_size: bs,
+                        output_device: if output_device.is_empty() {
+                            if audio_device.is_empty() {
+                                None
+                            } else {
+                                Some(audio_device.clone())
+                            }
+                        } else {
+                            Some(output_device.clone())
+                        },
+                        input_device: if input_device.is_empty() {
+                            if audio_device.is_empty() {
+                                None
+                            } else {
+                                Some(audio_device)
+                            }
+                        } else {
+                            Some(input_device)
+                        },
+                    };
+
+                    let mut audio_io = state.audio_io.lock().map_err(|e| e.to_string())?;
+                    *audio_io = Some(kicks_dsp::CpalAudioIO::new());
+                    if let Some(ref mut io) = *audio_io {
+                        let cpu_load = Arc::clone(&state.cpu_load);
+                        io.start(eng_arc.clone(), audio_config, param_rx, Some(cpu_load))
+                            .map_err(|e| format!("Failed to restart CPAL: {}", e))?;
+                    }
+                }
             }
 
             tracing::info!(
-                "Audio engine restarted with new config: {} Hz, buffer {}",
+                "Audio engine restarted with new config: {} Hz, buffer {}, backend {:?}",
                 sr,
-                bs
+                bs,
+                backend
             );
         }
         // If engine wasn't running, the new config will be picked up on next start
@@ -167,9 +241,10 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
     // ── 4. Persist to disk ──
     let config = state.config.lock().map_err(|e| e.to_string())?;
     tracing::info!(
-        "Settings saved (sample_rate: {}, buffer_size: {})",
+        "Settings saved (sample_rate: {}, buffer_size: {}, backend: {:?})",
         config.sample_rate,
-        config.buffer_size
+        config.buffer_size,
+        config.audio_backend
     );
 
     if let Err(e) = kicks_core::persistence::save_config(&config) {
