@@ -27,7 +27,7 @@ function simulate<T>(cmd: string, _args?: Record<string, unknown>): T {
     case 'get_version':
       return '0.1.0 (dev)' as T;
     case 'engine_status':
-      return { running: true, sample_rate: 48000, buffer_size: 256 } as T;
+      return { running: true, sample_rate: 48000, buffer_size: 256, backend: 'Cpal', mode: 'internal' } as T;
     case 'get_audio_levels': {
       // Simulate per-plugin RMS levels with slight frame-to-frame jitter
       const t = Date.now() / 500;

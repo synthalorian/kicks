@@ -3,6 +3,8 @@ export interface EngineStatus {
   running: boolean;
   sample_rate: number;
   buffer_size: number;
+  backend: string;
+  mode: string;
 }
 
 /** A slot in the signal chain */

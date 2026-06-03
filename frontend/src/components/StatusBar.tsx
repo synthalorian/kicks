@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useEngineStore } from '../stores/engineStore';
 
 interface StatusBarProps {
@@ -7,33 +6,72 @@ interface StatusBarProps {
 }
 
 export function StatusBar({ version, engineStatus }: StatusBarProps) {
-  const cpuLoad = useEngineStore((s) => s.cpuLoad);
   const status = useEngineStore((s) => s.status);
-  const pollCpu = useEngineStore((s) => s.pollCpu);
-
-  useEffect(() => {
-    if (!status.running) return;
-    const id = setInterval(() => {
-      pollCpu();
-    }, 500);
-    return () => clearInterval(id);
-  }, [status.running, pollCpu]);
+  const cpuLoad = useEngineStore((s) => s.cpuLoad);
 
   return (
-    <footer className="flex items-center justify-between px-5 py-1.5 border-t border-[var(--border)] bg-[var(--bg-surface)]/90 backdrop-blur text-[11px] text-[var(--text-muted)] shrink-0 font-mono-data tracking-wide">
-      <div className="flex items-center gap-4">
-        <span className="flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${engineStatus === 'connected' ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'}`} />
-          ENGINE {engineStatus === 'connected' ? 'ACTIVE' : 'INACTIVE'}
+    <footer
+      data-testid="status-bar"
+      className="flex items-center justify-between px-5 py-1.5 border-t border-[var(--border)] bg-[var(--bg-surface)]/90 backdrop-blur text-[11px] text-[var(--text-muted)] shrink-0"
+    >
+      <div className="flex items-center gap-4"
+      >
+        <span className="font-mono-data tracking-wider"
+        >
+          v{version}
         </span>
-        <span className="text-[var(--border)]">|</span>
-        <span>CPU {cpuLoad > 0 ? `${cpuLoad.toFixed(1)}%` : '— —%'}</span>
-        <span className="text-[var(--border)]">|</span>
-        <span>{status.running ? (status.sample_rate / 1000).toFixed(1) : '— —'} kHz</span>
-        <span className="text-[var(--border)]">|</span>
-        <span>{status.running ? status.buffer_size : '— —'} smp</span>
+        <span className="hidden sm:inline text-[var(--border)]"
+        >|</span>
+        <div className="hidden sm:flex items-center gap-3"
+        >
+          <span className="flex items-center gap-1.5"
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${engineStatus === 'connected' ? 'bg-[var(--success)]' : 'bg-[var(--danger)]'}`}
+            />
+            ENGINE {engineStatus === 'connected' ? 'ACTIVE' : 'INACTIVE'}
+          </span>
+          {status.running && (
+            <>
+              <span className="text-[var(--border)]"
+              >|</span>
+              <span className="font-mono-data"
+              >
+                {status.sample_rate / 1000}kHz / {status.buffer_size}
+              </span>
+              <span className="text-[var(--border)]"
+              >|</span>
+              <span className="font-mono-data uppercase"
+              >
+                {status.backend}
+              </span>
+              {status.mode !== 'none' && status.mode !== 'browser' && (
+                <>
+                  <span className="text-[var(--border)]"
+                  >|</span>
+                  <span className="font-mono-data uppercase text-[var(--accent)]"
+                  >
+                    {status.mode}
+                  </span>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
-      <span className="text-[var(--text-muted)]/60">v{version}</span>
+      <div className="flex items-center gap-3"
+      >
+        {cpuLoad > 0 && (
+          <span className="font-mono-data"
+          >
+            CPU {cpuLoad.toFixed(1)}%
+          </span>
+        )}
+        <span className="hidden sm:inline"
+        >
+          Space = Start/Stop
+        </span>
+      </div>
     </footer>
   );
 }

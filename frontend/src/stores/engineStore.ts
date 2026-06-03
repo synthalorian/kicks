@@ -51,7 +51,7 @@ interface EngineState {
 }
 
 export const useEngineStore = create<EngineState>((set, get) => ({
-  status: { running: false, sample_rate: 0, buffer_size: 0 },
+  status: { running: false, sample_rate: 0, buffer_size: 0, backend: 'None', mode: 'none' },
   chain: null,
   loading: false,
   levels: [],
@@ -66,7 +66,7 @@ export const useEngineStore = create<EngineState>((set, get) => ({
       set({ status });
     } else {
       const state = webAudioEngine.getState();
-      set({ status: { running: state.running, sample_rate: state.sampleRate, buffer_size: state.bufferSize } });
+      set({ status: { running: state.running, sample_rate: state.sampleRate, buffer_size: state.bufferSize, backend: 'WebAudio', mode: 'browser' } });
     }
   },
 
@@ -82,7 +82,7 @@ export const useEngineStore = create<EngineState>((set, get) => ({
         const state = webAudioEngine.getState();
         const chain = await api.getSignalChain();
         webAudioEngine.applyChain(chain);
-        set({ status: { running: state.running, sample_rate: state.sampleRate, buffer_size: state.bufferSize }, chain });
+        set({ status: { running: state.running, sample_rate: state.sampleRate, buffer_size: state.bufferSize, backend: 'WebAudio', mode: 'browser' }, chain });
       }
     } finally {
       set({ loading: false });
@@ -97,7 +97,7 @@ export const useEngineStore = create<EngineState>((set, get) => ({
       } else {
         await webAudioEngine.stop();
       }
-      set({ status: { running: false, sample_rate: 0, buffer_size: 0 } });
+      set({ status: { running: false, sample_rate: 0, buffer_size: 0, backend: 'None', mode: 'none' } });
     } finally {
       set({ loading: false });
     }
