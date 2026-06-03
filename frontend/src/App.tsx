@@ -130,7 +130,7 @@ function App() {
       {showWizard && <SetupWizard onClose={() => setShowWizard(false)} />}
       <Toolbar engineStatus={engineIndicator} modeLabel={modeLabel} />
       <main className="flex-1 flex overflow-hidden">
-        <Sidebar activePage={activePage} onNavigate={setActivePage} />
+        <Sidebar activePage={activePage} onNavigate={setActivePage} onShowWizard={() => setShowWizard(true)} />
         <section className="flex-1 overflow-y-auto p-5">
           <ErrorBoundary>
             <PageComponent />

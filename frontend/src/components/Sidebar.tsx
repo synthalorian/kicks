@@ -12,6 +12,7 @@ export type Page =
 interface SidebarProps {
   activePage: Page;
   onNavigate: (page: Page) => void;
+  onShowWizard?: () => void;
 }
 
 const navItems: { id: Page; label: string; icon: string; kbd: string }[] = [
@@ -26,7 +27,7 @@ const navItems: { id: Page; label: string; icon: string; kbd: string }[] = [
   { id: 'settings', label: 'Settings', icon: '⚙', kbd: '9' },
 ];
 
-export function Sidebar({ activePage, onNavigate }: SidebarProps) {
+export function Sidebar({ activePage, onNavigate, onShowWizard }: SidebarProps) {
   return (
     <nav className="w-52 border-r border-[var(--border)] bg-[var(--bg-surface)]/80 backdrop-blur flex flex-col gap-0.5 p-2 shrink-0">
       <div className="px-3 py-2 mb-2">
@@ -69,11 +70,22 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
         );
       })}
 
-      <div className="mt-auto px-3 py-3">
-        <div className="text-[9px] text-[var(--text-muted)] font-mono-data leading-relaxed">
-          <div>Space — toggle engine</div>
-          <div>Ctrl+Z — undo</div>
-          <div>Ctrl+Shift+Z — redo</div>
+      <div className="mt-auto">
+        {onShowWizard && (
+          <button
+            onClick={onShowWizard}
+            className="w-full text-left px-3 py-2 rounded-lg text-sm text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-bg)] transition-all cursor-pointer flex items-center gap-2.5 mb-2"
+          >
+            <span className="text-base opacity-80">❓</span>
+            <span>Setup Wizard</span>
+          </button>
+        )}
+        <div className="px-3 py-3">
+          <div className="text-[9px] text-[var(--text-muted)] font-mono-data leading-relaxed">
+            <div>Space — toggle engine</div>
+            <div>Ctrl+Z — undo</div>
+            <div>Ctrl+Shift+Z — redo</div>
+          </div>
         </div>
       </div>
     </nav>
