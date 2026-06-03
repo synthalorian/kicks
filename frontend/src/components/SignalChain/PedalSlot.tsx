@@ -18,6 +18,7 @@ interface PedalSlotProps {
 function pluginMeta(pluginType: string) {
   const map: Record<string, { label: string; color: string }> = {
     Input: { label: 'IN', color: 'bg-zinc-600' },
+    NoiseGate: { label: 'GATE', color: 'bg-slate-700' },
     Output: { label: 'OUT', color: 'bg-zinc-600' },
     Boost: { label: 'BST', color: 'bg-amber-600' },
     Amp: { label: 'AMP', color: 'bg-red-700' },
@@ -36,6 +37,14 @@ function pluginMeta(pluginType: string) {
 /** Plugin-type → parameter schema for default knobs. */
 function pluginParams(pluginType: string): { id: string; label: string }[] {
   switch (pluginType) {
+    case 'Input':
+      return [{ id: 'gain', label: 'Input Gain' }];
+    case 'NoiseGate':
+      return [
+        { id: 'threshold', label: 'Threshold' },
+        { id: 'attack', label: 'Attack' },
+        { id: 'release', label: 'Release' },
+      ];
     case 'Boost':
       return [{ id: 'gain', label: 'Gain' }];
     case 'Amp':

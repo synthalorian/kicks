@@ -20,6 +20,8 @@ pub struct ChainSlot {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum PluginType {
     Input,
+    /// Noise gate with threshold, attack, and release controls.
+    NoiseGate,
     Boost,
     Amp,
     /// Bass-specific amp with compressor, extended low-end, and shifted EQ.
@@ -48,7 +50,20 @@ impl Default for SignalChain {
                     plugin_type: PluginType::Input,
                     enabled: true,
                     wet_dry: 1.0,
-                    parameters: std::collections::HashMap::new(),
+                    parameters: [("gain".into(), 0.5)].into_iter().collect(),
+                },
+                ChainSlot {
+                    id: "noise_gate".to_string(),
+                    plugin_type: PluginType::NoiseGate,
+                    enabled: true,
+                    wet_dry: 1.0,
+                    parameters: [
+                        ("threshold".into(), 0.05),
+                        ("attack".into(), 0.01),
+                        ("release".into(), 0.1),
+                    ]
+                    .into_iter()
+                    .collect(),
                 },
                 ChainSlot {
                     id: "boost".to_string(),

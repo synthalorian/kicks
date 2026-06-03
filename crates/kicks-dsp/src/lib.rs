@@ -29,5 +29,5 @@ pub use fft_convolution::FftConvolver;
 pub use looper::Looper;
 pub use metronome::Metronome;
 pub use nam::{NamModelInfo, NeuralModel};
-pub use plugins::{compute_rms, Cab, Input, IrInfo, Nam, Output, Plugin, PluginRegistry};
+pub use plugins::{compute_rms, Cab, Input, IrInfo, Nam, NoiseGate, Output, Plugin, PluginRegistry};
 pub use tuner::Tuner;

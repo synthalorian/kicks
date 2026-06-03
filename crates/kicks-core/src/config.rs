@@ -61,7 +61,7 @@ impl Default for KicksConfig {
         Self {
             guitarix_host: "127.0.0.1".to_string(),
             guitarix_port: 4040,
-            active_engine: EngineMode::Guitarix,
+            active_engine: EngineMode::Internal,
             jack_client_name: "kicks".to_string(),
             sample_rate: 48000,
             buffer_size: 256,

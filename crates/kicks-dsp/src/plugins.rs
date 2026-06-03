@@ -837,10 +837,24 @@ impl Plugin for Nam {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Input — Passthrough for signal chain consistency
+// Input — Input gain stage for instrument-level signals
 // ═══════════════════════════════════════════════════════════════════════════════
 
-pub struct Input;
+pub struct Input {
+    gain: f32,
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Input {
+    pub fn new() -> Self {
+        Self { gain: 0.5 }
+    }
+}
 
 impl Plugin for Input {
     fn name(&self) -> &str {
@@ -852,15 +866,25 @@ impl Plugin for Input {
     }
 
     fn process(&mut self, input: &[f32], output: &mut [f32]) -> anyhow::Result<()> {
-        output.copy_from_slice(input);
+        let g = self.gain * 2.0; // 0..1 → 0..2x gain
+        for (i, sample) in input.iter().enumerate() {
+            output[i] = sample * g;
+        }
         Ok(())
     }
 
-    fn get_parameter(&self, _id: &str) -> Option<f32> {
-        None
+    fn get_parameter(&self, id: &str) -> Option<f32> {
+        match id {
+            "gain" => Some(self.gain),
+            _ => None,
+        }
     }
 
-    fn set_parameter(&mut self, _id: &str, _value: f32) {}
+    fn set_parameter(&mut self, id: &str, value: f32) {
+        if id == "gain" {
+            self.gain = value.clamp(0.0, 1.0);
+        }
+    }
 
     fn as_any(&self) -> &dyn Any {
         self
@@ -1240,6 +1264,133 @@ impl Plugin for Reverb {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// NoiseGate — Simple noise gate with threshold and release
+// ═══════════════════════════════════════════════════════════════════════════════
+
+pub struct NoiseGate {
+    threshold: f32,
+    attack_ms: f32,
+    release_ms: f32,
+    sample_rate: f32,
+    envelope: f32,
+    gate_open: bool,
+    attack_coeff: f32,
+    release_coeff: f32,
+}
+
+impl Default for NoiseGate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl NoiseGate {
+    pub fn new() -> Self {
+        Self {
+            threshold: 0.05,
+            attack_ms: 1.0,
+            release_ms: 100.0,
+            sample_rate: 48000.0,
+            envelope: 0.0,
+            gate_open: false,
+            attack_coeff: 0.0,
+            release_coeff: 0.0,
+        }
+    }
+
+    fn calc_coeff(ms: f32, sr: f32) -> f32 {
+        (-1000.0 / (ms * sr)).exp()
+    }
+}
+
+impl Plugin for NoiseGate {
+    fn name(&self) -> &str {
+        "noise_gate"
+    }
+
+    fn init(&mut self, sample_rate: f64) -> anyhow::Result<()> {
+        self.sample_rate = sample_rate as f32;
+        self.attack_coeff = Self::calc_coeff(self.attack_ms, self.sample_rate);
+        self.release_coeff = Self::calc_coeff(self.release_ms, self.sample_rate);
+        Ok(())
+    }
+
+    fn process(&mut self, input: &[f32], output: &mut [f32]) -> anyhow::Result<()> {
+        for (i, sample) in input.iter().enumerate() {
+            let abs_sample = sample.abs();
+            // Envelope follower
+            if abs_sample > self.envelope {
+                self.envelope = self.attack_coeff * self.envelope + (1.0 - self.attack_coeff) * abs_sample;
+            } else {
+                self.envelope = self.release_coeff * self.envelope + (1.0 - self.release_coeff) * abs_sample;
+            }
+
+            // Gate logic with hysteresis
+            if self.envelope > self.threshold * 1.5 {
+                self.gate_open = true;
+            } else if self.envelope < self.threshold * 0.5 {
+                self.gate_open = false;
+            }
+
+            // Smooth gain reduction
+            let _target_gain = if self.gate_open { 1.0 } else { 0.0 };
+            let _current_gain = if self.gate_open {
+                // Opening — fast attack
+                let coeff = self.attack_coeff;
+                coeff * 0.0 + (1.0 - coeff) * 1.0 // Simplified
+            } else {
+                // Closing — slow release
+                let coeff = self.release_coeff;
+                coeff * 1.0 + (1.0 - coeff) * 0.0
+            };
+
+            // Actually just use the envelope to determine gain for smoothness
+            let gain = if self.envelope > self.threshold {
+                1.0
+            } else {
+                // Below threshold: exponential fade to silence
+                let ratio = self.envelope / self.threshold.max(0.001);
+                ratio * ratio // Square law for smooth fade
+            };
+
+            output[i] = sample * gain;
+        }
+        Ok(())
+    }
+
+    fn get_parameter(&self, id: &str) -> Option<f32> {
+        match id {
+            "threshold" => Some(self.threshold),
+            "attack" => Some(self.attack_ms / 100.0), // 0..1 → 0..100ms
+            "release" => Some(self.release_ms / 1000.0), // 0..1 → 0..1000ms
+            _ => None,
+        }
+    }
+
+    fn set_parameter(&mut self, id: &str, value: f32) {
+        match id {
+            "threshold" => self.threshold = value.clamp(0.0, 1.0),
+            "attack" => {
+                self.attack_ms = value.clamp(0.0, 1.0) * 100.0;
+                self.attack_coeff = Self::calc_coeff(self.attack_ms, self.sample_rate);
+            }
+            "release" => {
+                self.release_ms = value.clamp(0.0, 1.0) * 1000.0;
+                self.release_coeff = Self::calc_coeff(self.release_ms, self.sample_rate);
+            }
+            _ => {}
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Plugin Registry ── manages a chain of plugins
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1456,10 +1607,11 @@ impl PluginRegistry {
         self.parameters.insert(id.to_string(), value);
     }
 
-    /// Build a default signal chain: Input → Boost → Amp → Cab → Delay → Reverb → Output.
+    /// Build a default signal chain: Input → NoiseGate → Boost → Amp → Cab → Delay → Reverb → Output.
     pub fn build_default_chain(&mut self) {
         self.clear();
-        self.add_plugin(Box::new(Input));
+        self.add_plugin(Box::new(Input::new()));
+        self.add_plugin(Box::new(NoiseGate::new()));
         self.add_plugin(Box::new(Boost::new()));
         self.add_plugin(Box::new(Amp::new()));
         self.add_plugin(Box::new(Cab::new()));
@@ -1468,31 +1620,38 @@ impl PluginRegistry {
         self.add_plugin(Box::new(Output::new()));
     }
 
-    /// Build a bass signal chain: Boost → BassAmp → Cab → Delay → Reverb.
+    /// Build a bass signal chain: Input → NoiseGate → Boost → BassAmp → Cab → Delay → Reverb.
     pub fn build_bass_chain(&mut self) {
         self.clear();
+        self.add_plugin(Box::new(Input::new()));
+        self.add_plugin(Box::new(NoiseGate::new()));
         self.add_plugin(Box::new(Boost::new()));
         self.add_plugin(Box::new(BassAmp::new()));
         self.add_plugin(Box::new(Cab::new()));
         self.add_plugin(Box::new(Delay::new()));
         self.add_plugin(Box::new(Reverb::new()));
+        self.add_plugin(Box::new(Output::new()));
     }
 
     /// Build a practice chain with tuner and metronome.
     pub fn build_practice_chain(&mut self) {
         self.clear();
+        self.add_plugin(Box::new(Input::new()));
         self.add_plugin(Box::new(Tuner::new()));
         self.add_plugin(Box::new(Metronome::new()));
         self.add_plugin(Box::new(Amp::new()));
         self.add_plugin(Box::new(Cab::new()));
+        self.add_plugin(Box::new(Output::new()));
     }
 
-    /// Build a looper chain: Amp → Cab → Looper.
+    /// Build a looper chain: Input → Amp → Cab → Looper → Output.
     pub fn build_looper_chain(&mut self) {
         self.clear();
+        self.add_plugin(Box::new(Input::new()));
         self.add_plugin(Box::new(Amp::new()));
         self.add_plugin(Box::new(Cab::new()));
         self.add_plugin(Box::new(Looper::new()));
+        self.add_plugin(Box::new(Output::new()));
     }
 
     /// Add a tuner plugin to the chain.
@@ -1803,7 +1962,7 @@ mod tests {
     fn test_registry_default_chain() {
         let mut registry = PluginRegistry::new();
         registry.build_default_chain();
-        assert_eq!(registry.len(), 7);
+        assert_eq!(registry.len(), 8);
     }
 
     #[test]

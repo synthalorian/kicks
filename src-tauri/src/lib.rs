@@ -29,6 +29,12 @@ pub struct AppState {
     /// Lock-free parameter channel: main thread pushes, audio callback drains.
     /// Created when the engine starts, cleared when it stops.
     pub param_tx: Mutex<Option<ParamSender>>,
+    /// Active Guitarix JSON-RPC client (when running in Guitarix mode).
+    pub guitarix_client: Mutex<Option<guitarix_rpc::GuitarixClient>>,
+    /// Managed Guitarix headless process (when we launched it).
+    pub guitarix_process: Mutex<Option<guitarix_rpc::GuitarixProcess>>,
+    /// Which engine mode is currently active: "internal" or "guitarix".
+    pub active_mode: Mutex<String>,
     pub signal_chain: Mutex<SignalChain>,
     pub presets: Mutex<PresetCollection>,
     pub scenes: Mutex<SceneCollection>,
@@ -82,6 +88,9 @@ pub fn run() {
             audio_io: Mutex::new(None),
             jack_audio_io: Mutex::new(None),
             param_tx: Mutex::new(None),
+            guitarix_client: Mutex::new(None),
+            guitarix_process: Mutex::new(None),
+            active_mode: Mutex::new("internal".to_string()),
             signal_chain: Mutex::new(signal_chain),
             presets: Mutex::new(presets),
             scenes: Mutex::new(scenes),

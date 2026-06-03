@@ -89,10 +89,21 @@ export function Settings() {
         </div>
       </section>
 
-      {/* CPAL Audio Device */}
+      {/* Audio Backend */}
       <section className="border border-[var(--border)] rounded-xl p-4 bg-[var(--bg-surface)]">
-        <h3 className="text-sm font-medium text-[var(--text)] mb-3">Audio Device</h3>
+        <h3 className="text-sm font-medium text-[var(--text)] mb-3">Audio Backend</h3>
         <div className="flex flex-col gap-3">
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Backend</span>
+            <select
+              value={settings.audio_backend}
+              onChange={(e) => updateSetting('audio_backend', e.target.value)}
+              className="w-40 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+            >
+              <option value="Cpal">CPAL (default)</option>
+              <option value="Jack">JACK</option>
+            </select>
+          </label>
           <label className="flex items-center justify-between">
             <span className="text-sm text-[var(--text)]">Sample Rate</span>
             <select
@@ -120,18 +131,34 @@ export function Settings() {
             </select>
           </label>
           <label className="flex items-center justify-between">
-            <span className="text-sm text-[var(--text)]">Device</span>
+            <span className="text-sm text-[var(--text)]">Input Device</span>
             <div className="flex items-center gap-2">
               <select
-                value={settings.audio_device}
-                onChange={(e) => updateSetting('audio_device', e.target.value)}
+                value={settings.input_device}
+                onChange={(e) => updateSetting('input_device', e.target.value)}
                 className="w-48 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
               >
                 <option value="">System Default</option>
-                {devices.map((d) => (
+                {devices.filter(d => d.is_input).map((d) => (
                   <option key={d.name} value={d.name}>
                     {d.name}
-                    {d.is_input && d.is_output ? '' : d.is_input ? ' (input only)' : ' (output only)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </label>
+          <label className="flex items-center justify-between">
+            <span className="text-sm text-[var(--text)]">Output Device</span>
+            <div className="flex items-center gap-2">
+              <select
+                value={settings.output_device}
+                onChange={(e) => updateSetting('output_device', e.target.value)}
+                className="w-48 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm outline-none focus:border-[var(--accent)]"
+              >
+                <option value="">System Default</option>
+                {devices.filter(d => d.is_output).map((d) => (
+                  <option key={d.name} value={d.name}>
+                    {d.name}
                   </option>
                 ))}
               </select>

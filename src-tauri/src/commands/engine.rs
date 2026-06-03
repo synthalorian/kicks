@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use kicks_core::config::AudioBackend;
+use kicks_core::config::{AudioBackend, EngineMode};
 use kicks_core::signal_chain::PluginType;
 use kicks_dsp::param::param_channel;
 use kicks_dsp::{AudioConfig, AudioEngine, CpalAudioIO, JackAudioIO, KicksEngine};
@@ -17,6 +17,7 @@ pub struct EngineStatus {
     pub sample_rate: f64,
     pub buffer_size: u32,
     pub backend: String,
+    pub mode: String,
 }
 
 /// Helper to read a WAV file and load it into the engine's Cab plugin.
@@ -90,25 +91,129 @@ fn load_ir_from_file(path: &str, eng: &mut KicksEngine) -> Result<super::ir::IrL
     })
 }
 
-/// Start the internal audio engine with the selected audio backend.
+/// Start the audio engine. Depending on `config.active_engine`, this either
+/// launches the internal DSP engine or connects to (and optionally launches)
+/// a headless Guitarix process via JSON-RPC.
 #[tauri::command]
-pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
+    let (engine_mode, sample_rate, buffer_size, audio_device, input_device, output_device, audio_backend, jack_client_name, guitarix_host, guitarix_port) = {
+        let config = state.config.lock().map_err(|e| e.to_string())?;
+        (
+            config.active_engine.clone(),
+            config.sample_rate as f64,
+            config.buffer_size,
+            config.audio_device.clone(),
+            config.input_device.clone(),
+            config.output_device.clone(),
+            config.audio_backend.clone(),
+            config.jack_client_name.clone(),
+            config.guitarix_host.clone(),
+            config.guitarix_port,
+        )
+    };
+
+    match engine_mode {
+        EngineMode::Guitarix => start_guitarix_mode(&state, &guitarix_host, guitarix_port).await,
+        EngineMode::Auto => {
+            // Try Guitarix first; fall back to internal on failure
+            if let Err(e) = start_guitarix_mode(&state, &guitarix_host, guitarix_port).await {
+                tracing::warn!("Guitarix mode failed ({}), falling back to internal", e);
+                start_internal_mode(
+                    &state,
+                    sample_rate,
+                    buffer_size,
+                    &audio_device,
+                    &input_device,
+                    &output_device,
+                    audio_backend,
+                    &jack_client_name,
+                )
+                .await
+            } else {
+                Ok(())
+            }
+        }
+        EngineMode::Internal => {
+            start_internal_mode(
+                &state,
+                sample_rate,
+                buffer_size,
+                &audio_device,
+                &input_device,
+                &output_device,
+                audio_backend,
+                &jack_client_name,
+            )
+            .await
+        }
+    }
+}
+
+/// Launch/connect to a headless Guitarix process via JSON-RPC.
+async fn start_guitarix_mode(
+    state: &State<'_, AppState>,
+    host: &str,
+    port: u16,
+) -> Result<(), String> {
+    // If a guitarix process is already managed, reuse it
+    let needs_launch = {
+        let mut proc_guard = state.guitarix_process.lock().map_err(|e| e.to_string())?;
+        proc_guard.as_mut().map(|p| !p.is_running()).unwrap_or(true)
+    };
+
+    if needs_launch {
+        match guitarix_rpc::GuitarixProcess::launch(port) {
+            Ok(proc) => {
+                tracing::info!("Launched guitarix headless on port {}", port);
+                *state.guitarix_process.lock().map_err(|e| e.to_string())? = Some(proc);
+                // Give guitarix a moment to bind its RPC port
+                tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+            }
+            Err(e) => {
+                tracing::warn!("Failed to launch guitarix: {}. Trying existing instance...", e);
+            }
+        }
+    }
+
+    // Connect via JSON-RPC
+    let client = guitarix_rpc::GuitarixClient::connect(host, port)
+        .await
+        .map_err(|e| format!("Failed to connect to guitarix at {}:{}: {}", host, port, e))?;
+
+    // Verify connection by fetching version
+    let mut client = client;
+    let version = client
+        .get_version()
+        .await
+        .map_err(|e| format!("Guitarix RPC handshake failed: {}", e))?;
+    tracing::info!("Connected to guitarix version {}", version);
+
+    // Store client and mark mode
+    *state.guitarix_client.lock().map_err(|e| e.to_string())? = Some(client);
+    *state.active_mode.lock().map_err(|e| e.to_string())? = "guitarix".to_string();
+
+    tracing::info!("Guitarix engine started (RPC mode)");
+    Ok(())
+}
+
+/// Start the internal DSP engine with the selected audio backend.
+#[allow(clippy::too_many_arguments)]
+async fn start_internal_mode(
+    state: &State<'_, AppState>,
+    sample_rate: f64,
+    buffer_size: u32,
+    audio_device: &str,
+    input_device: &str,
+    output_device: &str,
+    audio_backend: AudioBackend,
+    jack_client_name: &str,
+) -> Result<(), String> {
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
 
     if engine_guard.is_some() {
-        tracing::info!("Engine already running; skipping start");
+        tracing::info!("Internal engine already running; skipping start");
         return Ok(());
     }
-
-    let config = state.config.lock().map_err(|e| e.to_string())?;
-    let sample_rate = config.sample_rate as f64;
-    let buffer_size = config.buffer_size;
-    let audio_device = config.audio_device.clone();
-    let input_device = config.input_device.clone();
-    let output_device = config.output_device.clone();
-    let audio_backend = config.audio_backend.clone();
-    let jack_client_name = config.jack_client_name.clone();
-    drop(config);
 
     let eng = Arc::new(Mutex::new(KicksEngine::new()));
     {
@@ -172,14 +277,13 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
 
     match audio_backend {
         AudioBackend::Jack => {
-            // ── JACK backend ──
             let mut jack_io = state.jack_audio_io.lock().map_err(|e| e.to_string())?;
             if jack_io.is_none() {
                 *jack_io = Some(JackAudioIO::new(kicks_dsp::JackConfig {
                     client_name: if jack_client_name.is_empty() {
                         "Kicks".to_string()
                     } else {
-                        jack_client_name
+                        jack_client_name.to_string()
                     },
                 }));
             }
@@ -188,11 +292,9 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
                 io.start(eng_for_io, Some(cpu_load))
                     .map_err(|e| format!("Failed to start JACK audio: {}", e))?;
             }
-            tracing::info!("Audio engine started with JACK I/O");
+            tracing::info!("Internal engine started with JACK I/O");
         }
         AudioBackend::Cpal => {
-            // ── CPAL backend ──
-            // Create lock-free parameter channel
             let (param_tx, param_rx) = param_channel();
             *state.param_tx.lock().map_err(|e| e.to_string())? = Some(param_tx);
 
@@ -203,19 +305,19 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
                     if audio_device.is_empty() {
                         None
                     } else {
-                        Some(audio_device.clone())
+                        Some(audio_device.to_string())
                     }
                 } else {
-                    Some(output_device.clone())
+                    Some(output_device.to_string())
                 },
                 input_device: if input_device.is_empty() {
                     if audio_device.is_empty() {
                         None
                     } else {
-                        Some(audio_device)
+                        Some(audio_device.to_string())
                     }
                 } else {
-                    Some(input_device)
+                    Some(input_device.to_string())
                 },
             };
 
@@ -229,23 +331,23 @@ pub fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
                     .map_err(|e| format!("Failed to start CPAL audio: {}", e))?;
             }
             tracing::info!(
-                "Audio engine started with CPAL I/O ({} Hz, buffer {})",
+                "Internal engine started with CPAL I/O ({} Hz, buffer {})",
                 sample_rate,
                 buffer_size
             );
         }
     }
 
+    *state.active_mode.lock().map_err(|e| e.to_string())? = "internal".to_string();
     Ok(())
 }
 
 /// Stop the audio engine and all I/O backends.
 #[tauri::command]
 pub fn stop_engine(state: State<'_, AppState>) -> Result<(), String> {
-    // Clear the parameter channel first (no more pushes from main thread)
+    // ── Stop internal engine ──
     *state.param_tx.lock().map_err(|e| e.to_string())? = None;
 
-    // Stop CPAL audio I/O
     let mut audio_io = state.audio_io.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut io) = *audio_io {
         io.stop();
@@ -253,7 +355,6 @@ pub fn stop_engine(state: State<'_, AppState>) -> Result<(), String> {
     *audio_io = None;
     drop(audio_io);
 
-    // Stop JACK audio I/O
     let mut jack_io = state.jack_audio_io.lock().map_err(|e| e.to_string())?;
     if let Some(ref mut io) = *jack_io {
         io.stop();
@@ -261,9 +362,31 @@ pub fn stop_engine(state: State<'_, AppState>) -> Result<(), String> {
     *jack_io = None;
     drop(jack_io);
 
-    // Clear engine
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     *engine_guard = None;
+    drop(engine_guard);
+
+    // ── Stop Guitarix mode ──
+    let mut client_guard = state.guitarix_client.lock().map_err(|e| e.to_string())?;
+    if client_guard.is_some() {
+        // Best-effort shutdown notification
+        if let Some(ref mut client) = *client_guard {
+            let _ = std::thread::spawn({
+                let _client = client; // we can't easily async here, just drop
+                || {}
+            });
+        }
+        *client_guard = None;
+    }
+    drop(client_guard);
+
+    let mut proc_guard = state.guitarix_process.lock().map_err(|e| e.to_string())?;
+    if let Some(ref mut proc) = *proc_guard {
+        let _ = proc.stop();
+    }
+    *proc_guard = None;
+
+    *state.active_mode.lock().map_err(|e| e.to_string())? = "none".to_string();
 
     tracing::info!("Audio engine stopped");
     Ok(())
@@ -272,39 +395,42 @@ pub fn stop_engine(state: State<'_, AppState>) -> Result<(), String> {
 /// Get the current engine status.
 #[tauri::command]
 pub fn engine_status(state: State<'_, AppState>) -> EngineStatus {
-    let engine_guard = state.engine.lock();
-    match engine_guard {
-        Ok(guard) if guard.is_some() => {
-            // Try to get actual config values; fall back to defaults if locked
-            let (sr, bs, backend) = if let Ok(cfg) = state.config.try_lock() {
-                (
-                    cfg.sample_rate as f64,
-                    cfg.buffer_size,
-                    format!("{:?}", cfg.audio_backend),
-                )
-            } else {
-                (48000.0, 256, "Unknown".to_string())
-            };
-            EngineStatus {
-                running: true,
-                sample_rate: sr,
-                buffer_size: bs,
-                backend,
-            }
-        }
-        _ => EngineStatus {
-            running: false,
-            sample_rate: 0.0,
-            buffer_size: 0,
-            backend: "None".to_string(),
-        },
+    let mode = state
+        .active_mode
+        .lock()
+        .map(|m| m.clone())
+        .unwrap_or_else(|_| "unknown".to_string());
+
+    let running = match mode.as_str() {
+        "guitarix" => state.guitarix_client.lock().map(|c| c.is_some()).unwrap_or(false),
+        "internal" => state
+            .engine
+            .lock()
+            .map(|e| e.is_some())
+            .unwrap_or(false),
+        _ => false,
+    };
+
+    let (sr, bs, backend) = if let Ok(cfg) = state.config.try_lock() {
+        (
+            cfg.sample_rate as f64,
+            cfg.buffer_size,
+            format!("{:?}", cfg.audio_backend),
+        )
+    } else {
+        (48000.0, 256, "Unknown".to_string())
+    };
+
+    EngineStatus {
+        running,
+        sample_rate: sr,
+        buffer_size: bs,
+        backend,
+        mode,
     }
 }
 
 /// Get the DSP CPU load as a percentage (0.0 – 100.0+).
-///
-/// The audio callback measures processing time vs real-time budget
-/// and stores the value as (percentage * 1000) in an atomic counter.
 #[tauri::command]
 pub fn get_cpu_load(state: State<'_, AppState>) -> f64 {
     let raw = state.cpu_load.load(std::sync::atomic::Ordering::Relaxed);
@@ -313,67 +439,105 @@ pub fn get_cpu_load(state: State<'_, AppState>) -> f64 {
 
 /// Set a named parameter on the active engine.
 ///
-/// Pushes the change to the lock-free SPSC parameter channel. The audio
-/// callback drains the channel before each processing cycle, so the
-/// change is applied without ever holding the engine mutex from the
-/// main thread.  This eliminates the primary source of `try_lock`
-/// failures in the audio callback.
-///
-/// As a best-effort consistency measure, the engine's parameter HashMap
-/// is also updated immediately via `try_lock` (non-blocking). If the
-/// lock is contended, the audio callback applies the change on the next
-/// cycle and `get_parameter` will return the correct value after that.
+/// In **internal** mode this pushes to the lock-free SPSC parameter channel.
+/// In **Guitarix** mode this sends the parameter via JSON-RPC.
 #[tauri::command]
-pub fn set_parameter(state: State<'_, AppState>, id: String, value: f32) -> Result<(), String> {
-    // 1. Push to lock-free SPSC queue — always fast, never blocks on engine
-    let tx_guard = state.param_tx.lock().map_err(|e| e.to_string())?;
-    if let Some(ref tx) = *tx_guard {
-        tx.send(id.clone(), value)
-            .map_err(|_| "Parameter queue full".to_string())?;
-    }
-    // JACK backend doesn't use the param channel — parameter changes
-    // are applied directly via try_lock below.
-    drop(tx_guard);
+pub async fn set_parameter(
+    state: State<'_, AppState>,
+    id: String,
+    value: f32,
+) -> Result<(), String> {
+    let mode = state
+        .active_mode
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
 
-    // 2. Opportunistically sync the engine's parameter HashMap so
-    //    `get_parameter` returns the latest value immediately.
-    //    Uses `try_lock` — if the engine lock is contended, the value
-    //    is still guaranteed to arrive via the SPSC queue drain (CPAL)
-    //    or the next process cycle (JACK).
-    if let Ok(engine_guard) = state.engine.try_lock() {
-        if let Some(ref eng_arc) = *engine_guard {
-            if let Ok(mut eng) = eng_arc.try_lock() {
-                eng.set_parameter_value(&id, value);
+    match mode.as_str() {
+        "guitarix" => {
+            let client_opt = {
+                let mut client_guard = state.guitarix_client.lock().map_err(|e| e.to_string())?;
+                client_guard.take()
+            };
+            if let Some(mut client) = client_opt {
+                client
+                    .set_param(&id, value)
+                    .await
+                    .map_err(|e| format!("Guitarix RPC error: {}", e))?;
+                *state.guitarix_client.lock().map_err(|e| e.to_string())? = Some(client);
+            }
+            Ok(())
+        }
+        _ => {
+            // Internal mode: push to lock-free SPSC queue
+            let tx_guard = state.param_tx.lock().map_err(|e| e.to_string())?;
+            if let Some(ref tx) = *tx_guard {
+                tx.send(id.clone(), value)
+                    .map_err(|_| "Parameter queue full".to_string())?;
+            }
+            drop(tx_guard);
+
+            // Opportunistically sync the engine's parameter HashMap
+            if let Ok(engine_guard) = state.engine.try_lock() {
+                if let Some(ref eng_arc) = *engine_guard {
+                    if let Ok(mut eng) = eng_arc.try_lock() {
+                        eng.set_parameter_value(&id, value);
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Get a parameter value from the active engine.
+#[tauri::command]
+pub async fn get_parameter(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<f32>, String> {
+    let mode = state
+        .active_mode
+        .lock()
+        .map_err(|e| e.to_string())?
+        .clone();
+
+    match mode.as_str() {
+        "guitarix" => {
+            let client_opt = {
+                let mut client_guard = state.guitarix_client.lock().map_err(|e| e.to_string())?;
+                client_guard.take()
+            };
+            if let Some(mut client) = client_opt {
+                let val = client
+                    .get_param(&id)
+                    .await
+                    .map_err(|e| format!("Guitarix RPC error: {}", e))?;
+                *state.guitarix_client.lock().map_err(|e| e.to_string())? = Some(client);
+                Ok(Some(val))
+            } else {
+                Err("Guitarix client not connected".to_string())
+            }
+        }
+        _ => {
+            let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
+            if let Some(ref eng) = *engine_guard {
+                let eng_inner = eng.lock().map_err(|e| e.to_string())?;
+                Ok(eng_inner.get_parameter(&id))
+            } else {
+                Err("Engine not running".to_string())
             }
         }
     }
-
-    Ok(())
 }
 
 /// Get the current per-plugin RMS audio levels.
-///
-/// Returns a vector of f32 values in 0..1 range, one per plugin slot.
-/// Updated by the audio callback every process cycle (~5 ms).
-/// The frontend polls this at ~20 Hz for real-time VU meters.
 #[tauri::command]
 pub fn get_audio_levels(state: State<'_, AppState>) -> Result<Vec<f32>, String> {
     let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     if let Some(ref eng) = *engine_guard {
         let eng_inner = eng.lock().map_err(|e| e.to_string())?;
         Ok(eng_inner.audio_levels())
-    } else {
-        Err("Engine not running".to_string())
-    }
-}
-
-/// Get a parameter value from the active engine.
-#[tauri::command]
-pub fn get_parameter(state: State<'_, AppState>, id: String) -> Result<Option<f32>, String> {
-    let engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
-    if let Some(ref eng) = *engine_guard {
-        let eng_inner = eng.lock().map_err(|e| e.to_string())?;
-        Ok(eng_inner.get_parameter(&id))
     } else {
         Err("Engine not running".to_string())
     }

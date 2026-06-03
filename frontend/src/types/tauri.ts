@@ -50,9 +50,12 @@ export interface SettingsPayload {
   guitarix_port: number;
   engine_mode: string;
   jack_client_name: string;
+  audio_backend: string;
   sample_rate: number;
   buffer_size: number;
   audio_device: string;
+  input_device: string;
+  output_device: string;
   ir_directories: string[];
   nam_directories: string[];
   preset_directories: string[];
