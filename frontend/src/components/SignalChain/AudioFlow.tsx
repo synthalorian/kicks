@@ -175,7 +175,10 @@ export function AudioFlow() {
                   </div>
                 )}
 
-                <div className={`h-4 rounded-sm ${vuBg(level)} overflow-hidden relative`}>
+                {/* VU meter */}
+                <div className="px-2 pb-1.5"
+                >
+                  <div className={`h-4 rounded-sm ${vuBg(level)} overflow-hidden relative`}>
                     <div
                       className={`h-full rounded-sm bg-gradient-to-r ${vuColor(level)} transition-all duration-75`}
                       style={{ width: `${Math.min(level * 100, 100)}%` }}
@@ -190,6 +193,7 @@ export function AudioFlow() {
                       {(level * 100).toFixed(0)}%
                     </span>
                   </div>
+                </div>
 
                 {/* Wet/dry indicator if not 100% */}
                 {slot.wet_dry < 1.0 && (

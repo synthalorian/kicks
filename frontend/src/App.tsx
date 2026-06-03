@@ -12,6 +12,7 @@ import { AIAssistant } from './pages/AIAssistant';
 import { Settings } from './pages/Settings';
 import { Tools } from './pages/Tools';
 import { NAMBrowser } from './pages/NAMBrowser';
+import { SetupWizard } from './components/SetupWizard';
 import { useEngineStore } from './stores/engineStore';
 import { getVersion } from './lib/tauri';
 import { useHotkeys, type HotkeyDef } from './hooks/useHotkeys';
@@ -32,6 +33,7 @@ const pages: Record<Page, () => ReactNode> = {
 function App() {
   const [activePage, setActivePage] = useState<Page>('signal-chain');
   const [appVersion, setAppVersion] = useState('0.1.0');
+  const [showWizard, setShowWizard] = useState(false);
   const status = useEngineStore((s) => s.status);
   const isTauri = useEngineStore((s) => s.isTauri);
   const fetchStatus = useEngineStore((s) => s.fetchStatus);
@@ -49,6 +51,14 @@ function App() {
     fetchStatus();
     getVersion().then((v) => setAppVersion(v)).catch(() => {});
   }, [fetchStatus]);
+
+  // Show wizard on first launch
+  useEffect(() => {
+    const dismissed = localStorage.getItem('kicks:wizard-dismissed');
+    if (!dismissed) {
+      setShowWizard(true);
+    }
+  }, []);
 
   // Auto-start engine in browser mode so the UI isn't dead
   useEffect(() => {
@@ -117,6 +127,7 @@ function App() {
 
   return (
     <div className="h-full flex flex-col grid-bg">
+      {showWizard && <SetupWizard onClose={() => setShowWizard(false)} />}
       <Toolbar engineStatus={engineIndicator} modeLabel={modeLabel} />
       <main className="flex-1 flex overflow-hidden">
         <Sidebar activePage={activePage} onNavigate={setActivePage} />
