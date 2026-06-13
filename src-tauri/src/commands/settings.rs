@@ -21,7 +21,6 @@ pub struct SettingsPayload {
     // CPAL audio device settings
     pub sample_rate: u32,
     pub buffer_size: u32,
-    pub audio_device: String,
     pub input_device: String,
     pub output_device: String,
 
@@ -46,7 +45,6 @@ impl From<&KicksConfig> for SettingsPayload {
             audio_backend: format!("{:?}", cfg.audio_backend),
             sample_rate: cfg.sample_rate,
             buffer_size: cfg.buffer_size,
-            audio_device: cfg.audio_device.clone(),
             input_device: cfg.input_device.clone(),
             output_device: cfg.output_device.clone(),
             ir_directories: cfg.ir_directories.clone(),
@@ -75,12 +73,11 @@ pub fn get_settings(state: State<'_, AppState>) -> SettingsPayload {
 #[tauri::command]
 pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> Result<(), String> {
     // ── 1. Snapshot old audio config and detect changes ──
-    let (old_sr, old_bs, old_dev, old_in, old_out, old_backend) = {
+    let (old_sr, old_bs, old_in, old_out, old_backend) = {
         let cfg = state.config.lock().map_err(|e| e.to_string())?;
         (
             cfg.sample_rate,
             cfg.buffer_size,
-            cfg.audio_device.clone(),
             cfg.input_device.clone(),
             cfg.output_device.clone(),
             cfg.audio_backend.clone(),
@@ -92,7 +89,6 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
     };
     let audio_changed = old_sr != settings.sample_rate
         || old_bs != settings.buffer_size
-        || old_dev != settings.audio_device
         || old_in != settings.input_device
         || old_out != settings.output_device
         || old_backend != new_backend;
@@ -108,7 +104,6 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
         config.audio_backend = new_backend;
         config.sample_rate = settings.sample_rate;
         config.buffer_size = settings.buffer_size;
-        config.audio_device = settings.audio_device.clone();
         config.input_device = settings.input_device.clone();
         config.output_device = settings.output_device.clone();
 
@@ -139,7 +134,6 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
         if let Some(ref eng_arc) = *engine_opt {
             let sr = settings.sample_rate as f64;
             let bs = settings.buffer_size;
-            let audio_device = settings.audio_device.clone();
             let input_device = settings.input_device.clone();
             let output_device = settings.output_device.clone();
             let backend = match settings.audio_backend.as_str() {
@@ -199,20 +193,12 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
                         sample_rate: sr,
                         buffer_size: bs,
                         output_device: if output_device.is_empty() {
-                            if audio_device.is_empty() {
-                                None
-                            } else {
-                                Some(audio_device.clone())
-                            }
+                            None
                         } else {
                             Some(output_device.clone())
                         },
                         input_device: if input_device.is_empty() {
-                            if audio_device.is_empty() {
-                                None
-                            } else {
-                                Some(audio_device)
-                            }
+                            None
                         } else {
                             Some(input_device)
                         },
@@ -247,9 +233,8 @@ pub fn save_settings(state: State<'_, AppState>, settings: SettingsPayload) -> R
         config.audio_backend
     );
 
-    if let Err(e) = kicks_core::persistence::save_config(&config) {
-        tracing::warn!("Failed to persist config: {}", e);
-    }
+    kicks_core::persistence::save_config(&config)
+        .map_err(|e| format!("Failed to persist config: {}", e))?;
 
     Ok(())
 }

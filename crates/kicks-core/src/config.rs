@@ -34,8 +34,6 @@ pub struct KicksConfig {
     pub sample_rate: u32,
     pub buffer_size: u32,
     /// Empty string = use system default device.
-    pub audio_device: String,
-    /// Separate input/output device selection (replaces single audio_device).
     pub input_device: String,
     pub output_device: String,
 
@@ -65,7 +63,6 @@ impl Default for KicksConfig {
             jack_client_name: "kicks".to_string(),
             sample_rate: 48000,
             buffer_size: 256,
-            audio_device: String::new(),
             input_device: String::new(),
             output_device: String::new(),
             audio_backend: AudioBackend::default(),

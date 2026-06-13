@@ -290,8 +290,8 @@ pub fn list_audio_devices() -> Vec<DeviceInfo> {
             for dev in devs {
                 let name = dev
                     .description()
-                    .map(|d| d.to_string())
-                    .unwrap_or_else(|_| String::new());
+                    .map(|desc| desc.name().to_string())
+                    .unwrap_or_default();
                 let is_input = dev
                     .supported_input_configs()
                     .map(|c| c.count() > 0)

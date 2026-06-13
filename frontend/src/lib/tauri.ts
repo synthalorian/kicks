@@ -68,7 +68,6 @@ function simulate<T>(cmd: string, _args?: Record<string, unknown>): T {
         audio_backend: 'Cpal',
         sample_rate: 48000,
         buffer_size: 256,
-        audio_device: '',
         input_device: '',
         output_device: '',
         ir_directories: [],

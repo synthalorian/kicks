@@ -55,7 +55,6 @@ export interface SettingsPayload {
   audio_backend: string;
   sample_rate: number;
   buffer_size: number;
-  audio_device: string;
   input_device: string;
   output_device: string;
   ir_directories: string[];

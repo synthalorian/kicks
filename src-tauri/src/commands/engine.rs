@@ -96,13 +96,12 @@ fn load_ir_from_file(path: &str, eng: &mut KicksEngine) -> Result<super::ir::IrL
 /// a headless Guitarix process via JSON-RPC.
 #[tauri::command]
 pub async fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
-    let (engine_mode, sample_rate, buffer_size, audio_device, input_device, output_device, audio_backend, jack_client_name, guitarix_host, guitarix_port) = {
+    let (engine_mode, sample_rate, buffer_size, input_device, output_device, audio_backend, jack_client_name, guitarix_host, guitarix_port) = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
         (
             config.active_engine.clone(),
             config.sample_rate as f64,
             config.buffer_size,
-            config.audio_device.clone(),
             config.input_device.clone(),
             config.output_device.clone(),
             config.audio_backend.clone(),
@@ -122,30 +121,28 @@ pub async fn start_engine(state: State<'_, AppState>) -> Result<(), String> {
                     &state,
                     sample_rate,
                     buffer_size,
-                    &audio_device,
                     &input_device,
                     &output_device,
                     audio_backend,
                     &jack_client_name,
                 )
                 .await
-            } else {
+                } else {
                 Ok(())
-            }
-        }
-        EngineMode::Internal => {
-            start_internal_mode(
+                }
+                }
+                EngineMode::Internal => {
+                start_internal_mode(
                 &state,
                 sample_rate,
                 buffer_size,
-                &audio_device,
                 &input_device,
                 &output_device,
                 audio_backend,
                 &jack_client_name,
-            )
-            .await
-        }
+                )
+                .await
+                }
     }
 }
 
@@ -202,7 +199,6 @@ async fn start_internal_mode(
     state: &State<'_, AppState>,
     sample_rate: f64,
     buffer_size: u32,
-    audio_device: &str,
     input_device: &str,
     output_device: &str,
     audio_backend: AudioBackend,
@@ -302,20 +298,12 @@ async fn start_internal_mode(
                 sample_rate,
                 buffer_size,
                 output_device: if output_device.is_empty() {
-                    if audio_device.is_empty() {
-                        None
-                    } else {
-                        Some(audio_device.to_string())
-                    }
+                    None
                 } else {
                     Some(output_device.to_string())
                 },
                 input_device: if input_device.is_empty() {
-                    if audio_device.is_empty() {
-                        None
-                    } else {
-                        Some(audio_device.to_string())
-                    }
+                    None
                 } else {
                     Some(input_device.to_string())
                 },
@@ -348,20 +336,22 @@ pub fn stop_engine(state: State<'_, AppState>) -> Result<(), String> {
     // ── Stop internal engine ──
     *state.param_tx.lock().map_err(|e| e.to_string())? = None;
 
-    let mut audio_io = state.audio_io.lock().map_err(|e| e.to_string())?;
-    if let Some(ref mut io) = *audio_io {
-        io.stop();
+    // Drop CPAL audio I/O first (this stops the stream and drops the callback)
+    {
+        let mut audio_io = state.audio_io.lock().map_err(|e| e.to_string())?;
+        *audio_io = None;
     }
-    *audio_io = None;
-    drop(audio_io);
 
-    let mut jack_io = state.jack_audio_io.lock().map_err(|e| e.to_string())?;
-    if let Some(ref mut io) = *jack_io {
-        io.stop();
+    // Drop JACK audio I/O first
+    {
+        let mut jack_io = state.jack_audio_io.lock().map_err(|e| e.to_string())?;
+        *jack_io = None;
     }
-    *jack_io = None;
-    drop(jack_io);
 
+    // Give the audio subsystem a moment to release the engine Arc
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
+    // Now safe to drop the engine
     let mut engine_guard = state.engine.lock().map_err(|e| e.to_string())?;
     *engine_guard = None;
     drop(engine_guard);
