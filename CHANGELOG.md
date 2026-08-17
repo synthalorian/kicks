@@ -47,4 +47,4 @@ All notable changes to Kicks Guitar Workstation will be documented in this file.
 
 ---
 
-**Built by synth with synthshark** 🎹🦈🎸
+**Built by synthalorian 🎹🤺 with synthshark** 🎹🦈🎸
