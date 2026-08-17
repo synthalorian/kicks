@@ -215,7 +215,7 @@ The CI `release` job will automatically build and upload `.AppImage`, `.deb`, `.
 
 ---
 
-**Made by synthalorian 🎹🤺 with synthshark** 🎹🦈🎸
+**Made by synth with synthshark** 🎹🦈🎸
 
 ---
 
