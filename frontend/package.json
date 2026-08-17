@@ -8,7 +8,7 @@
     "url": "https://github.com/synthalorian/kicks.git",
     "directory": "frontend"
   },
-  "author": "synthalorian",
+  "author": "synth",
   "type": "module",
   "scripts": {
     "dev": "vite",
