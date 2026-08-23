@@ -93,13 +93,9 @@ pub fn run() {
             cpu_load: Arc::new(AtomicU64::new(0)),
         })
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            // NOTE: tauri_plugin_log is intentionally NOT registered here —
+            // setup_logging() already installs a global tracing subscriber,
+            // and registering a second logger panics at startup.
 
             app.handle().plugin(tauri_plugin_dialog::init())?;
 

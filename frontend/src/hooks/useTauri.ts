@@ -6,7 +6,8 @@ interface TauriInvoke {
 const TauriWindow = window as any;
 
 export function useTauri(): TauriInvoke {
-  const invoke = TauriWindow.__TAURI__?.invoke;
+  // Tauri v2: __TAURI__.core.invoke; v1: __TAURI__.invoke
+  const invoke = TauriWindow.__TAURI__?.invoke ?? TauriWindow.__TAURI__?.core?.invoke;
 
   return {
     async getVersion(): Promise<string> {

@@ -167,9 +167,6 @@ impl WaveNetLayer {
         let delay_len = delay.len() / ch;
 
         // For each input sample, process through this layer
-        let skip_sum;
-        let main_out;
-
         // Write input to delay line (input is single channel, broadcast to all channels)
         for c in 0..ch {
             let idx = *write_pos + c * delay_len;
@@ -177,7 +174,7 @@ impl WaveNetLayer {
         }
         *write_pos = (*write_pos + 1) % delay_len;
 
-        if self.gated {
+        let (main_out, skip_sum) = if self.gated {
             // Gated activation: conv_weight is [ch, 2, ch, ks]
             // Two output channels: gate and tanh
             let half = self.conv_weight.len() / 2;
@@ -210,11 +207,9 @@ impl WaveNetLayer {
             }
 
             let activated = tanh_sum.tanh() * gate_sum.sigmoid();
-            main_out = activated;
-
-            // Skip connection
-            skip_sum = activated * self.skip_weight.first().copied().unwrap_or(1.0)
+            let skip = activated * self.skip_weight.first().copied().unwrap_or(1.0)
                 + self.skip_bias.first().copied().unwrap_or(0.0);
+            (activated, skip)
         } else {
             // Non-gated: simple conv + activation
             let mut conv_sum = self.conv_bias.first().copied().unwrap_or(0.0);
@@ -238,11 +233,10 @@ impl WaveNetLayer {
                 Activation::Sigmoid => conv_sum.sigmoid(),
                 Activation::Relu => conv_sum.max(0.0),
             };
-            main_out = activated;
-
-            skip_sum = activated * self.skip_weight.first().copied().unwrap_or(1.0)
+            let skip = activated * self.skip_weight.first().copied().unwrap_or(1.0)
                 + self.skip_bias.first().copied().unwrap_or(0.0);
-        }
+            (activated, skip)
+        };
 
         (main_out, skip_sum)
     }
