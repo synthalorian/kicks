@@ -1,16 +1,31 @@
 /**
+ * Resolve the Tauri invoke function.
+ *
+ * Tauri v2 with `withGlobalTauri` exposes `window.__TAURI__.core.invoke`;
+ * v1 exposed `window.__TAURI__.invoke`. Support both.
+ */
+function resolveInvoke(): ((cmd: string, args?: Record<string, unknown>) => Promise<unknown>) | undefined {
+  const w = window as unknown as {
+    __TAURI__?: {
+      invoke?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+      core?: { invoke?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> };
+    };
+  };
+  return w.__TAURI__?.invoke ?? w.__TAURI__?.core?.invoke;
+}
+
+/**
  * Safely invoke a Tauri command, falling back gracefully when running in a browser.
  */
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const tauriInvoke = (window as unknown as { __TAURI__?: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<T> } })
-    .__TAURI__?.invoke;
+  const tauriInvoke = resolveInvoke();
 
   if (!tauriInvoke) {
     console.warn(`[tauri] Running outside Tauri — simulating '${cmd}'`);
     return simulate<T>(cmd, args);
   }
 
-  return tauriInvoke(cmd, args ?? {});
+  return tauriInvoke(cmd, args ?? {}) as Promise<T>;
 }
 
 // ── Simulated responses for dev mode (outside Tauri) ──

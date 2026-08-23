@@ -27,7 +27,21 @@ export default defineConfig({
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: {
+          firefoxUserPrefs: {
+            // Allow WebAudio autoplay so the engine can auto-start without a
+            // user gesture (mirrors Chromium's default in Playwright).
+            'media.autoplay.default': 0,
+            'media.autoplay.blocking_policy': 0,
+            // Headless Firefox has no microphone: getUserMedia hangs forever
+            // without fake media + auto-granted permission.
+            'media.navigator.streams.fake': true,
+            'media.navigator.permission.disabled': true,
+          },
+        },
+      },
     },
   ],
   webServer: {

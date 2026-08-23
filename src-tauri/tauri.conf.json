@@ -10,6 +10,7 @@
     "beforeBuildCommand": "cd ../frontend && npm run build"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Kicks Guitar Workstation",
