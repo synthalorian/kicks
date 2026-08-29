@@ -28,9 +28,10 @@ describe('tauri API simulation (outside Tauri)', () => {
 
   it('getSignalChain returns default chain snapshot', async () => {
     const chain = await getSignalChain();
-    expect(chain.slots).toHaveLength(8);
+    expect(chain.slots).toHaveLength(9);
     expect(chain.slots[0].plugin_type).toBe('Input');
-    expect(chain.slots[7].plugin_type).toBe('Output');
+    expect(chain.slots[1].plugin_type).toBe('Tuner');
+    expect(chain.slots[8].plugin_type).toBe('Output');
   });
 
   it('listPresets returns empty array', async () => {
