@@ -2,6 +2,7 @@ use kicks_core::preset::{Bank, Preset};
 use serde::Serialize;
 use tauri::State;
 
+use super::signal_chain::push_undo_state;
 use crate::AppState;
 
 /// A lightweight preset descriptor for list views.
@@ -82,27 +83,50 @@ pub fn save_preset(
     Ok(())
 }
 
-/// Load a preset, applying its signal chain.
+/// Load a preset: replace the current signal chain and apply it to the engine.
 #[tauri::command]
 pub fn load_preset(
     state: State<'_, AppState>, bank_name: String, preset_name: String,
 ) -> Result<(), String> {
-    let collection = state.presets.lock().map_err(|e| e.to_string())?;
-    let mut chain = state.signal_chain.lock().map_err(|e| e.to_string())?;
+    let preset_chain = {
+        let collection = state.presets.lock().map_err(|e| e.to_string())?;
+        let bank = collection
+            .banks
+            .iter()
+            .find(|b| b.name == bank_name)
+            .ok_or_else(|| format!("Bank '{}' not found", bank_name))?;
+        bank.presets
+            .iter()
+            .find(|p| p.name == preset_name)
+            .ok_or_else(|| format!("Preset '{}' not found", preset_name))?
+            .signal_chain
+            .clone()
+    };
 
-    let bank = collection
-        .banks
-        .iter()
-        .find(|b| b.name == bank_name)
-        .ok_or_else(|| format!("Bank '{}' not found", bank_name))?;
+    push_undo_state(&state);
+    {
+        let mut chain = state.signal_chain.lock().map_err(|e| e.to_string())?;
+        *chain = preset_chain.clone();
+        kicks_core::persistence::save_signal_chain(&chain)
+            .map_err(|e| format!("Failed to persist signal chain: {}", e))?;
+    }
 
-    let preset = bank
-        .presets
-        .iter()
-        .find(|p| p.name == preset_name)
-        .ok_or_else(|| format!("Preset '{}' not found", preset_name))?;
+    // Push preset parameters through the lock-free channel
+    // (no engine mutex needed — the audio callback drains the queue)
+    if let Ok(tx_guard) = state.param_tx.lock() {
+        if let Some(ref tx) = *tx_guard {
+            for slot in &preset_chain.slots {
+                let _ = tx.send(
+                    format!("{}/enabled", slot.id),
+                    if slot.enabled { 1.0 } else { 0.0 },
+                );
+                for (param_id, value) in &slot.parameters {
+                    let _ = tx.send(format!("{}/{}", slot.id, param_id), *value);
+                }
+            }
+        }
+    }
 
-    *chain = preset.signal_chain.clone();
     tracing::info!("Preset '{}' loaded from bank '{}'", preset_name, bank_name);
     Ok(())
 }
