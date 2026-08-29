@@ -215,12 +215,5 @@ The CI `release` job will automatically build and upload `.AppImage`, `.deb`, `.
 
 ---
 
-**Made by synth with synthshark** 🎹🦈🎸
+**Made by synth with synthclaw** 🎹🦞
 
----
-
-## ☕ Support the Developer
-
-If this project saved you time, solved a problem, or just made your day a little more neon, you can fuel the next one:
-
-[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://buymeacoffee.com/synthalorian)
