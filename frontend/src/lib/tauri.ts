@@ -63,6 +63,7 @@ function simulate<T>(cmd: string, _args?: Record<string, unknown>): T {
       return {
         slots: [
           { id: 'input', plugin_type: 'Input', enabled: true, wet_dry: 1.0, parameters: {} },
+          { id: 'tuner', plugin_type: 'Tuner', enabled: true, wet_dry: 1.0, parameters: { mute: 0.0 } },
           { id: 'boost', plugin_type: 'Boost', enabled: true, wet_dry: 1.0, parameters: { gain: 0.75 } },
           { id: 'amp', plugin_type: 'Amp', enabled: true, wet_dry: 1.0, parameters: { gain: 0.5, master: 0.7, bass: 0.5, mid: 0.5, treble: 0.5, drive: 0.5 } },
           { id: 'cab', plugin_type: 'Cab', enabled: true, wet_dry: 1.0, parameters: { level: 1.0, low_cut: 0.0, high_cut: 0.6 } },

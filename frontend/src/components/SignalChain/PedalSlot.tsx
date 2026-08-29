@@ -71,10 +71,7 @@ function pluginParams(pluginType: string): { id: string; label: string }[] {
         { id: 'mix', label: 'Mix' },
       ];
     case 'Tuner':
-      return [
-        { id: 'sensitivity', label: 'Sensitivity' },
-        { id: 'reference', label: 'Reference Hz' },
-      ];
+      return [{ id: 'mute', label: 'Mute' }];
     case 'Metronome':
       return [
         { id: 'bpm', label: 'BPM' },

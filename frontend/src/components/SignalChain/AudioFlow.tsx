@@ -35,7 +35,7 @@ function keyParams(pluginType: string): string[] {
     case 'Nam': return ['level'];
     case 'Delay': return ['time', 'mix'];
     case 'Reverb': return ['size', 'mix'];
-    case 'Tuner': return ['sensitivity'];
+    case 'Tuner': return ['mute'];
     case 'Metronome': return ['bpm'];
     case 'Looper': return ['mix'];
     default: return [];
