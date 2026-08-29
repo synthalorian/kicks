@@ -51,6 +51,13 @@ impl Default for SignalChain {
                     parameters: std::collections::HashMap::new(),
                 },
                 ChainSlot {
+                    id: "tuner".to_string(),
+                    plugin_type: PluginType::Tuner,
+                    enabled: true,
+                    wet_dry: 1.0,
+                    parameters: [("mute".into(), 0.0)].into_iter().collect(),
+                },
+                ChainSlot {
                     id: "boost".to_string(),
                     plugin_type: PluginType::Boost,
                     enabled: true,

@@ -1437,6 +1437,16 @@ impl PluginRegistry {
 
     pub fn set_parameter(&mut self, id: &str, value: f32) {
         self.parameters.insert(id.to_string(), value);
+        // Composite "plugin/param" ids (pushed by preset/scene loads through
+        // the SPSC queue) route to one specific plugin instead of broadcasting.
+        if let Some((plugin_name, param_id)) = id.split_once('/') {
+            if param_id == "enabled" {
+                self.set_plugin_enabled(plugin_name, value > 0.5);
+            } else {
+                self.set_parameter_on_plugin(plugin_name, param_id, value);
+            }
+            return;
+        }
         // Only set on plugins that actually expose this parameter,
         // avoiding collisions when multiple plugins share parameter names.
         for plugin in &mut self.plugins {
@@ -1456,10 +1466,14 @@ impl PluginRegistry {
         self.parameters.insert(id.to_string(), value);
     }
 
-    /// Build a default signal chain: Input → Boost → Amp → Cab → Delay → Reverb → Output.
+    /// Build a default signal chain: Input → Tuner → Boost → Amp → Cab → Delay → Reverb → Output.
+    ///
+    /// The Tuner sits right after Input so it always analyzes the raw guitar
+    /// signal (it passes audio through transparently unless muted).
     pub fn build_default_chain(&mut self) {
         self.clear();
         self.add_plugin(Box::new(Input));
+        self.add_plugin(Box::new(Tuner::new()));
         self.add_plugin(Box::new(Boost::new()));
         self.add_plugin(Box::new(Amp::new()));
         self.add_plugin(Box::new(Cab::new()));
@@ -1803,7 +1817,20 @@ mod tests {
     fn test_registry_default_chain() {
         let mut registry = PluginRegistry::new();
         registry.build_default_chain();
-        assert_eq!(registry.len(), 7);
+        assert_eq!(registry.len(), 8);
+    }
+
+    #[test]
+    fn test_composite_param_id_routing() {
+        let mut registry = PluginRegistry::new();
+        registry.build_default_chain();
+        registry.init_all(48000.0).unwrap();
+
+        registry.set_parameter("boost/gain", 0.25);
+        assert_eq!(registry.get_parameter("boost.gain"), Some(0.25));
+
+        registry.set_parameter("boost/enabled", 0.0);
+        assert_eq!(registry.get_parameter("boost.__enabled"), Some(0.0));
     }
 
     #[test]
