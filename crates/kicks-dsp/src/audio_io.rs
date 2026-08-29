@@ -349,8 +349,7 @@ pub struct JackProcessHandler {
 
 #[cfg(feature = "jack-backend")]
 impl jack::ProcessHandler for JackProcessHandler {
-    fn process(&mut self, _client: &jack::Client, ps: &jack::ProcessScope,
-    ) -> jack::Control {
+    fn process(&mut self, _client: &jack::Client, ps: &jack::ProcessScope) -> jack::Control {
         let start = std::time::Instant::now();
 
         let in_l_buf = self.in_l.as_slice(ps);
@@ -440,8 +439,7 @@ impl JackAudioIO {
     /// `engine` is the DSP engine shared with the process thread.
     /// `cpu_load` is an optional atomic for monitoring DSP load.
     pub fn start(
-        &mut self,
-        engine: Arc<Mutex<KicksEngine>>,
+        &mut self, engine: Arc<Mutex<KicksEngine>>,
         cpu_load: Option<Arc<std::sync::atomic::AtomicU64>>,
     ) -> Result<()> {
         #[cfg(feature = "jack-backend")]
