@@ -28,6 +28,31 @@ export interface Theme {
 
 export const THEMES: Theme[] = [
   {
+    name: 'Blackshield',
+    id: 'blackshield',
+    colors: {
+      accent: '#C1121F',
+      accentBg: '#1A1A20',
+      accentBorder: '#C1121F',
+      bg: '#0D0D11',
+      bgSurface: '#16161C',
+      bgElevated: '#1A1A20',
+      text: '#D8D3C8',
+      textH: '#F5F1E8',
+      textMuted: '#8A8F98',
+      border: '#1A1A20',
+      surfaceHover: '#1A1A20',
+      danger: '#C1121F',
+      dangerBg: '#2A0D10',
+      success: '#6A994E',
+      successBg: '#0F1A0D',
+      warning: '#C9A227',
+      warningBg: '#2A220D',
+      glow: '#C1121F',
+      accent2: '#7B9DC4',
+    },
+  },
+  {
     name: 'Default',
     id: 'default',
     colors: {
@@ -158,9 +183,9 @@ const STORAGE_KEY = 'kicks-theme';
 
 export function getSavedThemeId(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY) || 'default';
+    return localStorage.getItem(STORAGE_KEY) || 'blackshield';
   } catch {
-    return 'default';
+    return 'blackshield';
   }
 }
 
