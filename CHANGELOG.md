@@ -47,4 +47,4 @@ All notable changes to Kicks Guitar Workstation will be documented in this file.
 
 ---
 
-**Made by synth with synthclaw** 🎹🦞
+**Made by synth with blackclaw** ⚫🦞
