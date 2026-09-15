@@ -57,14 +57,22 @@ class AudioEngine {
     if (this.ctx?.state === 'running') return;
 
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 48000,
-        },
-      });
+      // Headless/CI browsers can leave getUserMedia pending forever (no mic,
+      // no permission prompt). Bound the wait so we still fall through to the
+      // test-oscillator fallback instead of leaving the engine dead.
+      const stream = await this.withTimeout(
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            sampleRate: 48000,
+          },
+        }),
+        3000,
+        'getUserMedia timed out',
+      );
+      this.stream = stream;
     } catch (err) {
       console.warn('[WebAudio] Could not get microphone access:', err);
       // Fallback: create offline-ish context for testing (oscillator)
@@ -73,11 +81,15 @@ class AudioEngine {
     }
 
     this.ctx = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
-    this.source = this.ctx.createMediaStreamSource(this.stream);
+    this.source = this.ctx.createMediaStreamSource(this.stream!);
     this.state.sampleRate = this.ctx.sampleRate;
     this.buildGraph();
     this.source.connect(this.inputGain!);
-    await this.ctx.resume();
+    // Don't block on resume(): where autoplay policy or a missing audio
+    // backend suspends the context, resume() can stay pending forever. The
+    // graph is built and the engine is considered started (same semantics as
+    // the oscillator fallback); the context resumes on the next user gesture.
+    this.ctx.resume().catch(() => {});
     this.state.running = true;
     this.startLevelPolling();
   }
@@ -172,6 +184,23 @@ class AudioEngine {
   }
 
   // ── Private ──
+
+  /** Race a promise against a timeout (for browser APIs that can hang forever). */
+  private withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(message)), ms);
+      promise.then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      );
+    });
+  }
 
   private getSlotIdByIndex(index: number): string | null {
     const ids = ['input', 'boost', 'amp', 'cab', 'bass-amp', 'delay', 'reverb', 'output'];
