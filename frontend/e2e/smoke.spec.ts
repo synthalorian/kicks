@@ -35,6 +35,8 @@ test.describe('Kicks Frontend Smoke Tests', () => {
   test('engine status indicator is visible', async ({ page }) => {
     await page.goto('/');
     const toolbar = page.locator('[data-testid="toolbar"]');
-    await expect(toolbar).toContainText('RUNNING');
+    // The engine auto-starts asynchronously (mic request with fallback), so
+    // allow extra time for the indicator to reach RUNNING on slow browsers.
+    await expect(toolbar).toContainText('RUNNING', { timeout: 15000 });
   });
 });
