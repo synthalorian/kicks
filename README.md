@@ -215,5 +215,5 @@ The CI `release` job will automatically build and upload `.AppImage`, `.deb`, `.
 
 ---
 
-**Made by synth with Blackclaw** ⚫🦞
+**Made by synth with blackclaw** ⚫🦞
 
