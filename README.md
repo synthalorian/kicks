@@ -215,5 +215,4 @@ The CI `release` job will automatically build and upload `.AppImage`, `.deb`, `.
 
 ---
 
-**Made by synth**
 
